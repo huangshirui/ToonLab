@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "toonlab",
+  "main": "./worker/index.js",
+  "compatibility_date": "2026-10-13",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "toonlab.verinasci.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  }
+}

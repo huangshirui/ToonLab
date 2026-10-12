@@ -2,71 +2,103 @@
 
 **AI-driven character animation experiments**
 
-ToonLab is a Web-first experimental lab for AI-driven animated characters. The first milestone validates a simple end-to-end loop:
+ToonLab is a Web-first experimental lab for AI-driven animated characters.
+
+Production target: **https://toonlab.verinasci.com**
+
+## P0 experiment
+
+The first milestone validates this loop:
 
 ```text
-LLM text → in-browser TTS → audio + visemes → animated character speech
+fixed intro → user supplies OpenRouter key → LLM text
+                                      ↓
+Browser: HeadTTS → audio + visemes → TalkingHead → animated speech
 ```
 
-## P0 experience
-
-1. Open `toonlab.verinasci.com`.
-2. Click **Start** so the browser can enable audio.
-3. The character gives a fixed introduction without any LLM credential.
-4. Enter an OpenRouter API key. The key is stored only in the current browser and can be replaced or deleted.
-5. Enter a prompt.
-6. The browser sends the prompt and key to ToonLab's Cloudflare Worker for that request only.
-7. The Worker calls OpenRouter and returns generated text.
-8. HeadTTS generates speech plus viseme timing in the browser; TalkingHead renders and lip-syncs the character.
+1. The user clicks **Start ToonLab**. This user gesture unlocks browser audio.
+2. TalkingHead loads the 3D character and HeadTTS initializes WebGPU, with WASM as fallback.
+3. The character gives a fixed introduction. No LLM credential is required for this step.
+4. The page then unlocks the OpenRouter controls.
+5. The user enters an OpenRouter API key. It is stored in that browser's `localStorage`, can be replaced, and can be deleted at any time.
+6. The browser sends the prompt and key to `/api/chat`. The key is carried in the `Authorization` header for that request only.
+7. The Cloudflare Worker forwards the request to OpenRouter and returns only the generated text plus the selected model ID.
+8. HeadTTS generates speech and viseme timing in the browser; TalkingHead renders and lip-syncs the character.
 
 ## Architecture
 
 ```text
 Browser
-├── TalkingHead                  3D avatar renderer
-├── HeadTTS                      in-browser TTS + visemes
+├── ToonLab UI
+├── TalkingHead                  bundled with the site
+├── HeadTTS                      bundled main client
 ├── localStorage                 user-owned OpenRouter key
 └── /api/chat ───────────────┐
                              │
 Cloudflare Worker            │
 └── OpenRouter proxy ◀───────┘
-    └── https://openrouter.ai/api/v1/chat/completions
+    └── api.openrouter.ai
 ```
 
-The Worker never stores the user's OpenRouter key. It must not log authorization headers or persist the key to KV, D1, Analytics, caches, or any other backend storage.
+HeadTTS currently loads its isolated inference worker/dictionaries from its pinned jsDelivr package and downloads the Kokoro model needed for browser inference. The UI's third-party libraries themselves are npm dependencies bundled into ToonLab rather than runtime script tags, so they are not independently injected into the page that owns the API key.
+
+## BYOK security boundary
+
+This is an experimental BYOK design, not a general-purpose credential vault.
+
+- The OpenRouter key is stored in browser `localStorage` by explicit user action.
+- The Worker must never log, persist, cache, echo, or analyze the key.
+- No KV, D1, R2, Durable Object, Queue, Analytics Engine, or server-side secret is used for user keys.
+- `/api/chat` responds with `Cache-Control: no-store`.
+- Cross-origin browser requests are rejected; localhost remains allowed for development.
+- Clearing browser site data also removes the locally stored key.
 
 ## Stack
 
-- TypeScript + Vite
+- Vite
 - Cloudflare Workers + Static Assets
-- `@met4citizen/talkinghead`
-- `@met4citizen/headtts`
-- OpenRouter Chat Completions API
+- `@met4citizen/talkinghead` 1.7.x
+- `@met4citizen/headtts` 1.3.x
+- Three.js 0.180.x
+- OpenRouter Chat Completions API (`openrouter/auto` by default)
 
 ## Development
+
+Requires Node.js 22+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Production build:
+`npm run dev` builds the frontend and serves the full Worker + Static Assets application through Wrangler.
+
+For frontend-only work with Vite HMR:
 
 ```bash
-npm run build
+npm run dev:web
 ```
 
-Deploy to Cloudflare:
+Build and Worker dry-run validation:
+
+```bash
+npm run check
+```
+
+Deploy:
 
 ```bash
 npm run deploy
 ```
 
-The Wrangler configuration targets the custom domain `toonlab.verinasci.com`.
+Wrangler is configured with `toonlab.verinasci.com` as the production Custom Domain. The deploying Cloudflare account must own the `verinasci.com` zone.
 
-## Project status
+## Current constraints
 
-The repository starts with the infrastructure and interaction skeleton. Avatar asset selection and final character art direction remain experimental and should stay replaceable behind the avatar adapter.
+- HeadTTS is English-only today.
+- P0 is optimized first for desktop Chrome/Edge with WebGPU. WASM fallback is supported but slower.
+- The initial avatar is a replaceable reference asset used only to validate the interaction loop; ToonLab's final character art direction remains open.
+- The project intentionally has no application database or user account system yet.
 
 ## License
 
