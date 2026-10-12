@@ -40,11 +40,14 @@ function chunkForSpeech(text) {
   return chunks;
 }
 
-function progressLabel(prefix, event) {
+function progressValue(event) {
   if (event?.lengthComputable && event.total > 0) {
-    return `${prefix} ${Math.min(100, Math.round((event.loaded / event.total) * 100))}%`;
+    return `${Math.min(100, Math.round((event.loaded / event.total) * 100))}%`;
   }
-  return prefix;
+  if (Number.isFinite(event?.loaded) && event.loaded > 0) {
+    return `${Math.round(event.loaded / 1000)}KB`;
+  }
+  return '…';
 }
 
 export class AvatarController {
@@ -66,34 +69,49 @@ export class AvatarController {
       lipsyncLang: 'en',
     });
 
+    // Resume audio while still inside the user's Start gesture. Browsers may
+    // otherwise block playback after asynchronous model loading finishes.
     if (this.head.audioCtx?.state === 'suspended') {
       await this.head.audioCtx.resume();
     }
 
-    this.onStatus('Loading character…');
-    await this.head.showAvatar(
-      {
-        url: AVATAR_URL,
-        body: 'F',
-        avatarMood: 'neutral',
-        lipsyncLang: 'en',
-      },
-      (event) => this.onStatus(progressLabel('Loading character…', event)),
-    );
-
-    this.onStatus('Loading local voice model…');
     this.tts = new HeadTTS({
       endpoints: ['webgpu', 'wasm'],
       languages: ['en-us'],
       voices: ['af_bella'],
       audioCtx: this.head.audioCtx,
+      // HeadTTS explicitly supports these pinned CDN URLs for its isolated
+      // module worker/dictionary resources. The page-owned client code itself
+      // remains bundled with ToonLab and is not injected from a runtime CDN.
       workerModule: `${HEADTTS_CDN}/modules/worker-tts.mjs`,
       dictionaryURL: `${HEADTTS_CDN}/dictionaries/`,
     });
 
-    await this.tts.connect(null, (event) => {
-      this.onStatus(progressLabel('Loading local voice model…', event));
-    });
+    const loading = { character: '…', voice: '…' };
+    const renderLoading = () => {
+      this.onStatus(`Loading character ${loading.character} · voice ${loading.voice}`);
+    };
+    renderLoading();
+
+    await Promise.all([
+      this.head.showAvatar(
+        {
+          url: AVATAR_URL,
+          body: 'F',
+          avatarMood: 'neutral',
+          lipsyncLang: 'en',
+        },
+        (event) => {
+          loading.character = progressValue(event);
+          renderLoading();
+        },
+      ),
+      this.tts.connect(null, (event) => {
+        loading.voice = progressValue(event);
+        renderLoading();
+      }),
+    ]);
+
     await this.tts.setup({
       voice: 'af_bella',
       language: 'en-us',
