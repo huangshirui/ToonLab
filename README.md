@@ -1,108 +1,77 @@
 # ToonLab
 
-**AI-driven character animation experiments**
-
-ToonLab is a Web-first experimental lab for AI-driven animated characters.
+**AI-driven character animation experiments · AI 驱动的动画角色实验**
 
 Production target: **https://toonlab.verinasci.com**
 
-## P0 experiment
+## P0 experiment / 首版链路
 
-The first milestone validates this loop:
+1. Click **Start ToonLab** to unlock browser audio and load the 3D character.
+2. Microsoft Edge Read Aloud generates a fixed introduction; no TTS or LLM key is needed.
+3. Save an OpenRouter key in this browser, then enter a prompt.
+4. `/api/chat` forwards the prompt to OpenRouter and returns English text.
+5. `/api/tts` returns Microsoft MP3 audio and word boundary timings.
+6. TalkingHead plays the decoded audio and derives English visemes from timed words.
 
-```text
-fixed intro → user supplies OpenRouter key → LLM text
-                                      ↓
-Browser: HeadTTS → audio + visemes → TalkingHead → animated speech
-```
+首版改用微软 **Edge Read Aloud 在线语音**，默认 `en-US-AriaNeural`。无需 Azure Key、HeadTTS / Kokoro 模型下载或 WebGPU 推理。角色渲染、音频播放和口型计算仍在浏览器运行。
 
-1. The user clicks **Start ToonLab**. This user gesture unlocks browser audio.
-2. TalkingHead loads the 3D character and HeadTTS initializes WebGPU, with WASM as fallback.
-3. The character gives a fixed introduction. No LLM credential is required for this step.
-4. The page then unlocks the OpenRouter controls.
-5. The user enters an OpenRouter API key. It is stored in that browser's `localStorage`, can be replaced, and can be deleted at any time.
-6. The browser sends the prompt and key to `/api/chat`. The key is carried in the `Authorization` header for that request only.
-7. The Cloudflare Worker forwards the request to OpenRouter and returns only the generated text plus the selected model ID.
-8. HeadTTS generates speech and viseme timing in the browser; TalkingHead renders and lip-syncs the character.
+## Speech architecture / 语音架构
 
-## Architecture
+Browser → same-origin `POST /api/tts` → Cloudflare Worker → Microsoft WebSocket
 
-```text
-Browser
-├── ToonLab UI
-├── TalkingHead                  bundled with the site
-├── HeadTTS                      bundled main client
-├── localStorage                 user-owned OpenRouter key
-└── /api/chat ───────────────┐
-                             │
-Cloudflare Worker            │
-└── OpenRouter proxy ◀───────┘
-    └── api.openrouter.ai
-```
+The Worker collects one short utterance and returns MP3 + `words`, `wtimes`, `wdurations`. Microsoft timing units (100 ns) are converted to milliseconds. The browser decodes MP3 into an AudioBuffer and calls TalkingHead `speakAudio`. The English lip-sync processor is bundled with the frontend, avoiding unresolved runtime imports after Vite builds.
 
-HeadTTS currently loads its isolated inference worker/dictionaries from its pinned jsDelivr package and downloads the Kokoro model needed for browser inference. The UI's third-party libraries themselves are npm dependencies bundled into ToonLab rather than runtime script tags, so they are not independently injected into the page that owns the API key.
+- Browser chunks long text into at most 460 characters; the endpoint accepts at most 500.
+- Worker bounds the actual request body at 8 KB and audio at 2 MB.
+- Upstream connection timeout: 10 seconds; synthesis timeout: 30 seconds; browser timeout: 45 seconds.
+- Completion, failure, cancellation and timeout close the upstream socket.
+- This P0 buffers each short utterance before playback; it is not real-time streaming audio.
 
-## BYOK security boundary
+微软免费接口提供音频和单词时间戳，**不提供 Azure Speech 的原生 viseme 事件**。口型由 TalkingHead 根据英文单词推导，因此当前 P0 仍输出英语。文本会发送到微软，不再是设备端离线合成。该消费端接口并非有 SLA 的 Azure API，协议变化、拒绝访问或限流时会明确报错，允许重试。
 
-This is an experimental BYOK design, not a general-purpose credential vault.
+Protocol reference: [rany2/edge-tts](https://github.com/rany2/edge-tts). ToonLab independently implements the small protocol adapter; no Python service or additional persistent infrastructure is required.
 
-- The OpenRouter key is stored in browser `localStorage` by explicit user action.
-- The Worker must never log, persist, cache, echo, or analyze the key.
-- No KV, D1, R2, Durable Object, Queue, Analytics Engine, or server-side secret is used for user keys.
-- `/api/chat` responds with `Cache-Control: no-store`.
-- Cross-origin browser requests are rejected; localhost remains allowed for development.
-- Clearing browser site data also removes the locally stored key.
+## BYOK security boundary / Key 安全边界
 
-## Stack
+- OpenRouter keys belong to users and are saved only in browser `localStorage`, with replacement and deletion controls.
+- The key is sent only in the `Authorization` header of `/api/chat`, then used for that OpenRouter request.
+- `/api/tts` does not send or forward OpenRouter keys; its Microsoft headers are constructed independently.
+- The Worker does not log, persist or cache keys or synthesized speech; API responses use `Cache-Control: no-store`.
+- Cross-origin browser API calls are rejected; same-origin deployments and localhost development are supported.
+- No D1, KV, R2, Queue, Durable Object, account system or server-side user key vault is introduced.
+- UI libraries and the English lip-sync processor are bundled with ToonLab, without runtime CDN script injection.
 
-- Vite
-- Cloudflare Workers + Static Assets
-- `@met4citizen/talkinghead` 1.7.x
-- `@met4citizen/headtts` 1.3.x
-- Three.js 0.180.x
-- OpenRouter Chat Completions API (`openrouter/auto` by default)
+## Development / 开发
 
-## Development
-
-Requires Node.js 22+.
+Node.js 22+ required.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-`npm run dev` builds the frontend and serves the full Worker + Static Assets application through Wrangler.
-
-For frontend-only work with Vite HMR:
+The full Worker + Static Assets app runs through Wrangler. `npm run dev:web` is frontend-only Vite HMR; speech and chat require the Worker routes.
 
 ```bash
-npm run dev:web
-```
-
-Build and Worker dry-run validation:
-
-```bash
+npm test
 npm run check
 ```
 
-## Deployment
+`check` runs protocol / error / credential-isolation tests, Vite build and Wrangler deployment dry-run. Mock protocol tests do not establish that Microsoft's live endpoint accepts a deployment or that browser audio and visible lip sync are correct. After deployment, verify the introduction, a generated reply, retry after an upstream failure, and mobile audio activation.
 
-Local Wrangler deployment:
+## Deployment / 部署
 
 ```bash
 npm run deploy
 ```
 
-The repository also includes a manual **Deploy to Cloudflare** GitHub Actions workflow. Before using it, add a repository Actions secret named `CLOUDFLARE_API_TOKEN` with permission to deploy Workers in the ToonLab Cloudflare account, then run the workflow from the Actions tab. The account ID is non-secret and is pinned in the workflow.
+Alternatively, configure the repository Actions secret `CLOUDFLARE_API_TOKEN` and manually run **Deploy to Cloudflare**. The non-secret Cloudflare account ID is pinned in the workflow. The deploying account must own the `verinasci.com` zone for the configured Custom Domain.
 
-Wrangler is configured with `toonlab.verinasci.com` as the production Custom Domain. The deploying Cloudflare account must own the `verinasci.com` zone.
+## Stack / 技术栈
 
-## Current constraints
+Vite · Cloudflare Workers + Static Assets · TalkingHead 1.7 · Three.js 0.180 · Microsoft Edge Read Aloud · OpenRouter (`openrouter/auto`).
 
-- HeadTTS is English-only today; P0 model output is therefore constrained to spoken English.
-- P0 is optimized first for desktop Chrome/Edge with WebGPU. WASM fallback is supported but slower.
-- The initial avatar is a replaceable reference asset used only to validate the interaction loop; ToonLab's final character art direction remains open.
-- The project intentionally has no application database or user account system yet.
+The initial avatar is a replaceable reference asset. Final character art direction remains open.
 
 ## License
 

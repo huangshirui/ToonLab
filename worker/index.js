@@ -1,3 +1,5 @@
+import { MAX_TEXT_LENGTH, synthesize } from './edge-tts.js';
+
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openrouter/auto';
 const MAX_PROMPT_LENGTH = 2000;
@@ -5,7 +7,7 @@ const MAX_KEY_LENGTH = 512;
 
 const SYSTEM_PROMPT = [
   'You are the voice of ToonLab, an experimental animated character.',
-  'For this P0 experiment, always reply in natural spoken English because the current local voice engine supports English only.',
+  'For this P0 experiment, always reply in natural spoken English because the current lip-sync processor supports English only.',
   'If the user asks for another spoken language, briefly explain that the current demo voice is English-only and continue in English.',
   'Keep the response concise: normally one to three sentences and under 100 words.',
   'Return plain conversational text only. Do not use markdown headings, lists, code blocks, or URLs unless the user explicitly needs them.',
@@ -27,12 +29,47 @@ function getBearerToken(request) {
 function isAllowedOrigin(request) {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
+  if (origin === new URL(request.url).origin) return true;
   if (origin === 'https://toonlab.verinasci.com') return true;
   try {
     const url = new URL(origin);
     return (url.hostname === 'localhost' || url.hostname === '127.0.0.1') && ['http:', 'https:'].includes(url.protocol);
   } catch {
     return false;
+  }
+}
+
+async function handleTts(request) {
+  if (!isAllowedOrigin(request)) return json({ error: 'Origin not allowed.' }, { status: 403 });
+  let body;
+  try {
+    // Bound the actual body, including chunked requests without Content-Length.
+    const reader = request.body?.getReader();
+    if (!reader) return json({ error: 'Text is required.' }, { status: 400 });
+    const chunks = [];
+    let length = 0;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        length += value.length;
+        if (length > 8192) {
+          await reader.cancel();
+          return json({ error: 'Request body is too large.' }, { status: 413 });
+        }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    body = JSON.parse(await new Blob(chunks).text());
+  } catch { return json({ error: 'Invalid JSON request.' }, { status: 400 }); }
+  const text = typeof body?.text === 'string' ? body.text.trim() : '';
+  if (!text || text.length > MAX_TEXT_LENGTH) {
+    return json({ error: `Text must contain 1–${MAX_TEXT_LENGTH} characters.` }, { status: 400 });
+  }
+  try {
+    return json(await synthesize(text, request.signal));
+  } catch {
+    return json({ error: 'Microsoft TTS is unavailable or timed out. Please try again.' }, { status: 502 });
   }
 }
 
@@ -151,6 +188,11 @@ export default {
         return json({ error: 'Method not allowed.' }, { status: 405, headers: { Allow: 'POST' } });
       }
       return handleChat(request);
+    }
+
+    if (url.pathname === '/api/tts') {
+      if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, { status: 405, headers: { Allow: 'POST' } });
+      return handleTts(request);
     }
 
     if (url.pathname.startsWith('/api/')) {

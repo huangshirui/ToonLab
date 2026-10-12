@@ -26,10 +26,10 @@
           <p class="eyebrow">Experiment 01</p>
           <h2>Meet a browser-native talking character.</h2>
           <p>
-            Start the demo to load the character and local speech engine. The first introduction does not need an API key.
+            Start the demo to load the character and use Microsoft speech. The first introduction does not need an API key.
           </p>
           <button id="start-button" class="primary-button" type="button">Start ToonLab</button>
-          <p class="microcopy">Desktop Chrome or Edge with WebGPU is recommended for this first experiment.</p>
+          <p class="microcopy">Microsoft Edge voices · No TTS API key or local speech model required.</p>
         </div>
       </section>
 
@@ -77,7 +77,7 @@
             <textarea id="prompt" rows="5" maxlength="2000" placeholder="Ask the character to explain something in one or two sentences…"></textarea>
             <button id="send-button" class="primary-button" type="submit">Generate &amp; speak</button>
           </form>
-          <p class="privacy-note">P0 speech output is English-only because the current local HeadTTS voice engine supports English only.</p>
+          <p class="privacy-note">Speech text is sent to Microsoft for synthesis. P0 output is English-only for accurate lip sync.</p>
           <p id="app-status" class="app-status" aria-live="polite"></p>
         </section>
       </aside>
