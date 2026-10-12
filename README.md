@@ -85,17 +85,21 @@ Build and Worker dry-run validation:
 npm run check
 ```
 
-Deploy:
+## Deployment
+
+Local Wrangler deployment:
 
 ```bash
 npm run deploy
 ```
 
+The repository also includes a manual **Deploy to Cloudflare** GitHub Actions workflow. Before using it, add a repository Actions secret named `CLOUDFLARE_API_TOKEN` with permission to deploy Workers in the ToonLab Cloudflare account, then run the workflow from the Actions tab. The account ID is non-secret and is pinned in the workflow.
+
 Wrangler is configured with `toonlab.verinasci.com` as the production Custom Domain. The deploying Cloudflare account must own the `verinasci.com` zone.
 
 ## Current constraints
 
-- HeadTTS is English-only today.
+- HeadTTS is English-only today; P0 model output is therefore constrained to spoken English.
 - P0 is optimized first for desktop Chrome/Edge with WebGPU. WASM fallback is supported but slower.
 - The initial avatar is a replaceable reference asset used only to validate the interaction loop; ToonLab's final character art direction remains open.
 - The project intentionally has no application database or user account system yet.
