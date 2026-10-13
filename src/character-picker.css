@@ -1,0 +1,208 @@
+.character-current {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #2a3944;
+  border-radius: 14px;
+  background: #0e151c;
+}
+
+.character-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #263843, #172129);
+  color: #78e5cd;
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.character-current-copy {
+  min-width: 0;
+}
+
+.character-current-copy strong,
+.character-current-copy span {
+  display: block;
+}
+
+.character-current-copy strong {
+  color: #eef3f5;
+  font-size: 14px;
+}
+
+.character-current-copy span {
+  margin-top: 4px;
+  color: #71828d;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-change-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #263640;
+  color: #e9f0f3;
+  font-weight: 700;
+}
+
+.character-change-button:hover { background: #30444f; }
+
+.character-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 22px;
+  background: #111820;
+  color: #eef3f5;
+  box-shadow: 0 30px 90px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+
+.character-dialog::backdrop {
+  background: rgba(4, 8, 11, .7);
+  backdrop-filter: blur(5px);
+}
+
+.character-dialog-shell {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.character-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.character-dialog-header h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
+
+.character-dialog-close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: #1a252e;
+  color: #aebdc5;
+  font-size: 22px;
+}
+
+.character-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 22px;
+}
+
+.character-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.character-option {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #293842;
+  border-radius: 16px;
+  background: #0d141a;
+  color: inherit;
+  text-align: left;
+}
+
+.character-option:hover { border-color: #3e5663; }
+.character-option.is-selected {
+  border-color: #65dec5;
+  box-shadow: 0 0 0 3px rgba(101,222,197,.08);
+}
+
+.character-option-preview {
+  height: 124px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 35%, rgba(101,222,197,.16), transparent 36%), #152029;
+  color: #78e5cd;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.character-option strong,
+.character-option span,
+.character-option small {
+  display: block;
+}
+
+.character-option strong { font-size: 14px; }
+.character-option span { margin-top: 4px; color: #82939d; font-size: 12px; }
+.character-option small { margin-top: 9px; color: #667985; font-size: 12px; line-height: 1.45; }
+
+.renderer-picker {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.renderer-picker p {
+  margin: 8px 0 0;
+  color: #71828d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.character-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px 20px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.character-dialog-footer .primary-button,
+.character-dialog-footer .secondary-button {
+  width: auto;
+  min-width: 96px;
+  margin: 0;
+  min-height: 42px;
+}
+
+@media (max-width: 860px) {
+  .character-dialog {
+    width: 100%;
+    max-width: none;
+    max-height: min(78dvh, 680px);
+    margin: auto 0 0;
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+  }
+
+  .character-list { grid-template-columns: 1fr; }
+  .character-option-preview { height: 96px; }
+}
+
+@media (max-width: 520px) {
+  .character-current {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .character-thumb { width: 46px; height: 46px; }
+  .character-dialog-header,
+  .character-dialog-body,
+  .character-dialog-footer { padding-left: 16px; padding-right: 16px; }
+}
