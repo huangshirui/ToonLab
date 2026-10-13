@@ -5,12 +5,13 @@
   "type": "module",
   "description": "AI-driven character animation experiments",
   "scripts": {
+    "prepare:talkinghead": "node scripts/prepare-talkinghead.mjs",
     "dev": "npm run build && wrangler dev",
-    "dev:web": "node scripts/prepare-avatar.mjs && vite",
-    "build": "node scripts/prepare-avatar.mjs && vite build",
+    "dev:web": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite",
+    "build": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite build",
     "check": "npm test && npm run build && wrangler deploy --dry-run --outdir .wrangler-dry-run",
     "deploy": "npm run build && wrangler deploy",
-    "test": "node --test"
+    "test": "npm run prepare:talkinghead && node --test"
   },
   "dependencies": {
     "@met4citizen/talkinghead": "^1.7.0",

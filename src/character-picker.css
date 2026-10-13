@@ -56,6 +56,11 @@
 
 .character-change-button:hover { background: #30444f; }
 
+.control-panel.is-character-switching {
+  opacity: .58;
+  cursor: wait;
+}
+
 .character-dialog {
   width: min(680px, calc(100vw - 32px));
   max-height: min(760px, calc(100dvh - 32px));
@@ -154,9 +159,9 @@
 .character-option small { margin-top: 9px; color: #667985; font-size: 12px; line-height: 1.45; }
 
 .renderer-picker {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
 }
 
 .renderer-picker p {
