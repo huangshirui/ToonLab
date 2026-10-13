@@ -6,9 +6,10 @@
   "description": "AI-driven character animation experiments",
   "scripts": {
     "prepare:talkinghead": "node scripts/prepare-talkinghead.mjs",
+    "prepare:live2d": "node scripts/prepare-live2d.mjs",
     "dev": "npm run build && wrangler dev",
-    "dev:web": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite",
-    "build": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite build",
+    "dev:web": "npm run prepare:talkinghead && npm run prepare:live2d && node scripts/prepare-avatar.mjs && vite",
+    "build": "npm run prepare:talkinghead && npm run prepare:live2d && node scripts/prepare-avatar.mjs && vite build",
     "check": "npm test && npm run build && wrangler deploy --dry-run --outdir .wrangler-dry-run",
     "deploy": "npm run build && wrangler deploy",
     "test": "npm run prepare:talkinghead && node --test"
