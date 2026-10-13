@@ -1,4 +1,4 @@
-export async function generateReply({ apiKey = '', demoCode = '', prompt, model = 'openrouter/auto' }) {
+export async function generateReply({ apiKey = '', demoCode = '', prompt, model = 'openrouter/free' }) {
   const hasApiKey = Boolean(apiKey);
   const hasDemoCode = Boolean(demoCode);
   if (hasApiKey === hasDemoCode) {

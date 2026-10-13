@@ -8,16 +8,32 @@ Production target: https://toonlab.verinasci.com
 
 点击 Start ToonLab → Azure Speech 合成固定介绍 → 用户使用 Demo Code 或自己的 OpenRouter Key → Worker 请求大模型 → Azure Speech 合成回复 → TalkingHead 同步播放音频和口型。
 
-页面为单屏响应式布局：Desktop 左侧角色、右侧交互；Mobile 角色全屏，Conversation / Settings 收在底部抽屉。角色说话时 Mobile 抽屉自动收起，用户仍可手动展开。回复文本以角色底部单行字幕显示。
+页面为单屏响应式布局：Desktop 左侧角色、右侧交互；Mobile 角色全屏，Conversation / Settings 收在底部抽屉。角色说话时 Mobile 抽屉自动收起，用户仍可手动展开。回复文本以角色底部单行字幕显示，并按 TTS word-boundary 时间随发音推进。
 
-使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Davis 四个 en-US Neural voice，当前实验保留英语输出。
+角色资源会在页面打开后异步预加载；首次加载和后续切换角色都使用角色区域内的统一加载状态。浏览器音频仍在首次用户交互时激活，以符合自动播放限制。
 
-OpenRouter 模型可直接输入 model id，默认 `openrouter/auto`。角色选择已作为设置项抽出，目前只有随站点部署的 `MPFB Demo`，便于后续继续增加角色 renderer / asset。
+如果浏览器已经保存 Demo Code 或 OpenRouter API Key，则跳过首次 Start 引导并直接进入 Conversation；如果没有凭证，首次介绍结束后自动进入 Settings → OpenRouter access，并聚焦当前凭证输入框。
+
+使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Sara 四个 en-US Neural voice，当前实验保留英语输出。
+
+OpenRouter 模型可直接输入 model id，默认 `openrouter/free`。Conversation 页面不展示具体模型名称；模型只在 Settings 中配置。
+
+角色设置在 Settings 中只显示当前角色和 Change。点击 Change 打开 Character Picker，可查看角色名称、类型和简介，并选择 Renderer。当前 Renderer 只有 `TalkingHead`；数据模型已将 `character` 与 `renderer` 分开保存，为后续增加其他 renderer（例如 Live2D）预留接口。
+
+TalkingHead 当前上游仓库提供的 5 类示例角色都已加入 ToonLab：
+
+- MPFB
+- Ready Player Me
+- Avaturn
+- AvatarSDK / MetaPerson
+- VRoid
+
+`brunette-t.glb` 只是 Ready Player Me 示例的另一参考姿态，不作为独立角色。角色资产在构建时从固定 TalkingHead commit 下载并校验 Git blob hash，然后由 ToonLab 同源提供；不会在浏览器运行时依赖第三方角色域名。
 
 ## 语音与口型架构
 
 - Worker `POST /api/tts/token` 使用资源密钥向 Azure STS 换取短期令牌（有效期 10 分钟）。响应 `no-store`；浏览器只在一次合成的内存中使用令牌。
-- 浏览器使用打包的 Microsoft Speech SDK，订阅 `visemeReceived`，同时接收 WAV 音频和 Azure 原生 Viseme ID / audioOffset。
+- 浏览器使用打包的 Microsoft Speech SDK，订阅 `visemeReceived` 与 `wordBoundary`，同时接收 WAV 音频、Viseme ID / audioOffset 和字幕词边界。
 - 100 ns 时间单位转换为毫秒；22 个 Azure Viseme 映射到 TalkingHead 的 Oculus 嘴形。双元音使用代表嘴形，属于角色绑定映射的近似，不是单词内部时间推算。
 - SDK 禁用自行播放音频，TalkingHead 统一控制音频与嘴形，避免双重播放。静音事件用于结束前一个嘴形。
 - 缺少原生 Viseme 时明确失败，不回退到根据英文单词推算口型。
@@ -78,7 +94,7 @@ npm run dev
 npm run check
 ```
 
-`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
+`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、默认模型、角色 registry、令牌隔离、Viseme/字幕时间映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
 
 Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
 
@@ -94,6 +110,6 @@ GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variab
 
 Vite · Cloudflare Workers + Static Assets · Microsoft Speech SDK · TalkingHead · Three.js · OpenRouter。
 
-初始角色使用 TalkingHead 的 MPFB 示例（CC0），随站点部署，不依赖浏览器访问 Ready Player Me。构建从固定上游提交下载模型并校验 SHA-256，拆分为同源 glTF、几何和贴图，保留骨架和所有口型形变；每个文件低于 Workers 25 MiB 限制。模型总下载约 37 MB，首次加载仍需要时间。构建机器需能访问 GitHub，缓存目录不入库。来源与许可见 `public/avatars/NOTICE.md`。
+角色来源与各自许可见 `public/avatars/NOTICE.md`。MPFB 示例为 CC0；Ready Player Me、Avaturn、AvatarSDK 与 VRoid 上游示例带有非商业使用限制或单独条款，因此 ToonLab 仅将它们用于实验验证，商业部署前必须重新核对并替换不适用资产。
 
-项目代码 MIT；示例模型 CC0。
+项目代码 MIT；角色资产按各自来源许可使用。
