@@ -1,10 +1,7 @@
 import { TalkingHead } from '@met4citizen/talkinghead';
 import { synthesizeSpeech } from './speech.js';
 
-const AVATAR_URL =
-  'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb' +
-  '?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown' +
-  '&textureSizeLimit=1024&textureFormat=png';
+const AVATAR_URL = '/avatars/demo/avatar.gltf';
 
 const MAX_TTS_CHUNK = 460;
 

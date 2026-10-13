@@ -6,8 +6,8 @@
   "description": "AI-driven character animation experiments",
   "scripts": {
     "dev": "npm run build && wrangler dev",
-    "dev:web": "vite",
-    "build": "vite build",
+    "dev:web": "node scripts/prepare-avatar.mjs && vite",
+    "build": "node scripts/prepare-avatar.mjs && vite build",
     "check": "npm test && npm run build && wrangler deploy --dry-run --outdir .wrangler-dry-run",
     "deploy": "npm run build && wrangler deploy",
     "test": "node --test"

@@ -74,4 +74,6 @@ GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variab
 
 Vite · Cloudflare Workers + Static Assets · Microsoft Speech SDK · TalkingHead · Three.js · OpenRouter。
 
-初始角色为可替换参考模型。MIT。
+初始角色使用 TalkingHead 的 MPFB 示例（CC0），随站点部署，不依赖浏览器访问 Ready Player Me。构建从固定上游提交下载模型并校验 SHA-256，拆分为同源 glTF、几何和贴图，保留骨架和所有口型形变；每个文件低于 Workers 25 MiB 限制。模型总下载约 37 MB，首次加载仍需要时间。构建机器需能访问 GitHub，缓存目录不入库。来源与许可见 `public/avatars/NOTICE.md`。
+
+项目代码 MIT；示例模型 CC0。
