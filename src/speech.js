@@ -1,7 +1,7 @@
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 import { toTalkingHeadVisemes } from './visemes.js';
 
-export async function synthesizeSpeech(text, audioCtx, sdk = SpeechSDK, timeoutMs = 30_000) {
+export async function synthesizeSpeech(text, audioCtx, sdk = SpeechSDK, timeoutMs = 30_000, { voice } = {}) {
   if (!text.trim() || text.length > 500) throw new Error('Speech text must contain 1–500 characters.');
   // No OpenRouter credential on this route. Azure resource key stays in Worker.
   const response = await fetch('/api/tts/token', {
@@ -10,7 +10,7 @@ export async function synthesizeSpeech(text, audioCtx, sdk = SpeechSDK, timeoutM
   const credentials = await response.json();
   if (!response.ok) throw new Error(credentials.error ?? 'Azure Speech authorization failed.');
   const config = sdk.SpeechConfig.fromAuthorizationToken(credentials.token, credentials.region);
-  config.speechSynthesisVoiceName = credentials.voice;
+  config.speechSynthesisVoiceName = voice || credentials.voice;
   config.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm;
   // null output disables SDK speaker playback: TalkingHead owns audio playback.
   const synthesizer = new sdk.SpeechSynthesizer(config, null);

@@ -103,6 +103,20 @@ test('SDK buffers audio once, converts native offsets and closes before TalkingH
   assert.deepEqual(data.visemes, ['PP', 'U']);
   assert.deepEqual(data.words, []);
 });
+
+test('selected voice overrides the Worker default without exposing Azure secrets', async t => {
+  tokenMock(t);
+  const sdk = mockSdk();
+  await synthesizeSpeech(
+    'Hello',
+    { decodeAudioData: async () => ({ duration: 0.5 }) },
+    sdk,
+    30_000,
+    { voice: 'en-US-GuyNeural' },
+  );
+  assert.equal(sdk.state.config.speechSynthesisVoiceName, 'en-US-GuyNeural');
+});
+
 test('SDK failures, cancellation, missing visemes and timeout fail rather than silently infer mouth shapes', async t => {
   tokenMock(t);
   for (const mode of ['failure', 'throw', 'cancel', 'timeout', 'no-visemes']) {

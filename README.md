@@ -6,9 +6,13 @@ Production target: https://toonlab.verinasci.com
 
 ## 首版链路
 
-点击 Start ToonLab → Azure Speech 合成固定介绍 → 用户在本地保存 OpenRouter Key → Worker 请求大模型 → Azure Speech 合成回复 → TalkingHead 同步播放音频和口型。
+点击 Start ToonLab → Azure Speech 合成固定介绍 → 用户使用 Demo Code 或自己的 OpenRouter Key → Worker 请求大模型 → Azure Speech 合成回复 → TalkingHead 同步播放音频和口型。
 
-使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前实验保留英语输出。
+页面为单屏响应式布局：Desktop 左侧角色、右侧交互；Mobile 角色全屏，Conversation / Settings 收在底部抽屉。角色说话时 Mobile 抽屉自动收起，用户仍可手动展开。回复文本以角色底部单行字幕显示。
+
+使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Davis 四个 en-US Neural voice，当前实验保留英语输出。
+
+OpenRouter 模型可直接输入 model id，默认 `openrouter/auto`。角色选择已作为设置项抽出，目前只有随站点部署的 `MPFB Demo`，便于后续继续增加角色 renderer / asset。
 
 ## 语音与口型架构
 
@@ -40,11 +44,27 @@ Region 必须是资源的区域标识（例如 `eastasia`），不是 URL。资�
 
 令牌具备临时访问资源的权限。此 P0 的令牌端点面向站点访问者开放；Origin 检查不等同于认证，令牌可在到期前被站外复用，浏览器文本长度限制也不是资源级限额。公开实验使用专用 F0 资源；后续需要严格用户配额时，再加认证与访问控制。
 
-## OpenRouter Key 安全边界
+## OpenRouter 访问与 Demo Code
 
-- 用户 Key 仅存浏览器 localStorage，可修改或清除。
-- Key 只发送至 `/api/chat`，Worker 只用于对应 OpenRouter 请求。
-- `/api/tts/token` 不发送或转发 OpenRouter Key；Azure 资源密钥不返回浏览器。
+页面提供互斥的两种 OpenRouter 访问方式：
+
+- **API key**：用户自己的 Key，仅存浏览器 localStorage；请求时以 Bearer token 发送给 ToonLab Worker，再由 Worker 转发给 OpenRouter。
+- **Demo code**：用户只输入共享 Demo Code；Worker 校验成功后使用 Worker Secret 中的 OpenRouter Demo API Key。Demo API Key 永远不会返回浏览器。
+
+Demo 模式需要在本地 `.dev.vars` 或生产 Worker Secrets 同时配置：
+
+```bash
+npx wrangler secret put DEMO_CODE
+npx wrangler secret put OPENROUTER_DEMO_API_KEY
+```
+
+两种凭证不会在同一请求中同时使用；Worker 也会拒绝同时携带两种凭证的请求。Demo Code 适合实验访问，不应视为用户级认证或配额系统。
+
+## OpenRouter / Speech 安全边界
+
+- 用户 OpenRouter Key 与 Demo Code 仅存浏览器 localStorage，可修改或清除。
+- OpenRouter 凭证只发送至 `/api/chat`；`/api/tts/token` 不发送或转发 OpenRouter 凭证。
+- Azure 资源密钥与 OpenRouter Demo API Key 只保存在 Worker Secret，不返回浏览器。
 - 不记录、持久化或缓存令牌和语音；前端依赖通过本地构建打包。
 - 无 D1、KV、R2、Queues、DO 或用户 Key 服务端存储。
 
@@ -58,11 +78,11 @@ npm run dev
 npm run check
 ```
 
-`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
+`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
 
 Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
 
-GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variables → Actions 配置两个 repository secrets：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。Account ID 填管理 `verinasci.com` 的 Cloudflare 账号 ID。Azure 两项 Worker Secret 需事先配置。
+GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variables → Actions 配置两个 repository secrets：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。Account ID 填管理 `verinasci.com` 的 Cloudflare 账号 ID。Azure 与可选 Demo Code/OpenRouter Demo Key 等 Worker Secret 需事先配置在 Cloudflare Worker。
 
 ## 官方参考
 

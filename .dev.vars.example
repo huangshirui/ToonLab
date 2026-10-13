@@ -1,3 +1,7 @@
 # Copy to .dev.vars (ignored by git). Use an Azure Speech resource with F0 tier.
 AZURE_SPEECH_KEY=replace-with-resource-key
 AZURE_SPEECH_REGION=eastasia
+
+# Optional shared demo access. Configure both values together.
+DEMO_CODE=replace-with-demo-code
+OPENROUTER_DEMO_API_KEY=replace-with-openrouter-key

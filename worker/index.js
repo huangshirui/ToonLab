@@ -4,6 +4,7 @@ const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openrouter/auto';
 const MAX_PROMPT_LENGTH = 2000;
 const MAX_KEY_LENGTH = 512;
+const MAX_DEMO_CODE_LENGTH = 128;
 
 const SYSTEM_PROMPT = [
   'You are the voice of ToonLab, an experimental animated character.',
@@ -39,6 +40,53 @@ function isAllowedOrigin(request) {
   }
 }
 
+async function constantTimeMatch(left, right) {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(left)),
+    crypto.subtle.digest('SHA-256', encoder.encode(right)),
+  ]);
+  const a = new Uint8Array(leftHash);
+  const b = new Uint8Array(rightHash);
+  let difference = 0;
+  for (let i = 0; i < a.length; i++) difference |= a[i] ^ b[i];
+  return difference === 0;
+}
+
+async function resolveOpenRouterKey(request, env) {
+  const apiKey = getBearerToken(request);
+  const demoCode = (request.headers.get('X-ToonLab-Demo-Code') ?? '').trim();
+
+  if (apiKey && demoCode) {
+    return { error: json({ error: 'Use either a demo code or an OpenRouter API key, not both.' }, { status: 400 }) };
+  }
+
+  if (apiKey) {
+    if (apiKey.length > MAX_KEY_LENGTH) {
+      return { error: json({ error: 'A valid OpenRouter API key is required.' }, { status: 401 }) };
+    }
+    return { apiKey };
+  }
+
+  if (demoCode) {
+    if (demoCode.length > MAX_DEMO_CODE_LENGTH) {
+      return { error: json({ error: 'Invalid demo code.' }, { status: 401 }) };
+    }
+    if (!env.DEMO_CODE || !env.OPENROUTER_DEMO_API_KEY) {
+      return { error: json({ error: 'Demo access is not configured on this deployment.' }, { status: 503 }) };
+    }
+    if (!(await constantTimeMatch(demoCode, env.DEMO_CODE))) {
+      return { error: json({ error: 'Invalid demo code.' }, { status: 401 }) };
+    }
+    if (env.OPENROUTER_DEMO_API_KEY.length > MAX_KEY_LENGTH) {
+      return { error: json({ error: 'Demo access is misconfigured.' }, { status: 503 }) };
+    }
+    return { apiKey: env.OPENROUTER_DEMO_API_KEY };
+  }
+
+  return { error: json({ error: 'A demo code or OpenRouter API key is required.' }, { status: 401 }) };
+}
+
 async function handleTtsToken(request, env) {
   if (!isAllowedOrigin(request)) return json({ error: 'Origin not allowed.' }, { status: 403 });
   if (!env.AZURE_SPEECH_KEY || !/^[a-z0-9]+$/.test(env.AZURE_SPEECH_REGION ?? '')) {
@@ -72,15 +120,13 @@ async function readOpenRouterError(response) {
   return `OpenRouter request failed with status ${response.status}.`;
 }
 
-async function handleChat(request) {
+async function handleChat(request, env) {
   if (!isAllowedOrigin(request)) {
     return json({ error: 'Origin not allowed.' }, { status: 403 });
   }
 
-  const apiKey = getBearerToken(request);
-  if (!apiKey || apiKey.length > MAX_KEY_LENGTH) {
-    return json({ error: 'A valid OpenRouter API key is required.' }, { status: 401 });
-  }
+  const credential = await resolveOpenRouterKey(request, env);
+  if (credential.error) return credential.error;
 
   const contentLength = Number(request.headers.get('Content-Length') ?? 0);
   if (contentLength > 16_384) {
@@ -110,7 +156,7 @@ async function handleChat(request) {
     upstream = await fetch(OPENROUTER_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${credential.apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://toonlab.verinasci.com',
         'X-Title': 'ToonLab',
@@ -165,7 +211,7 @@ export default {
       if (request.method !== 'POST') {
         return json({ error: 'Method not allowed.' }, { status: 405, headers: { Allow: 'POST' } });
       }
-      return handleChat(request);
+      return handleChat(request, env);
     }
 
     if (url.pathname === '/api/tts/token') {
