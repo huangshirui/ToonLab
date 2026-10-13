@@ -1,12 +1,7 @@
 import { TalkingHead } from '@met4citizen/talkinghead';
 import { synthesizeSpeech } from './speech.js';
+import { getCharacter } from './characters.js';
 
-const CHARACTER_PRESETS = {
-  'mpfb-demo': {
-    url: '/avatars/demo/avatar.gltf',
-    body: 'F',
-  },
-};
 const MAX_TTS_CHUNK = 460;
 
 function chunkForSpeech(text) {
@@ -58,10 +53,14 @@ export class AvatarController {
     this.head = null;
     this.ready = false;
     this.character = null;
+    this.renderer = null;
     this.loadPromise = null;
   }
 
-  ensureEngine() {
+  ensureEngine(renderer = 'talkinghead') {
+    if (renderer !== 'talkinghead') {
+      throw new Error('This renderer is not available yet.');
+    }
     this.head ??= new TalkingHead(this.container, {
       cameraView: 'upper',
       lipsyncLang: 'en',
@@ -70,11 +69,12 @@ export class AvatarController {
     return this.head;
   }
 
-  async loadCharacter(character = 'mpfb-demo') {
-    const preset = CHARACTER_PRESETS[character];
-    if (!preset) throw new Error('This character is not available.');
-    if (this.ready && this.character === character) return;
-    if (this.loadPromise && this.character === character) return this.loadPromise;
+  async loadCharacter(characterId = 'mpfb-demo', renderer = 'talkinghead') {
+    const character = getCharacter(characterId);
+    const preset = character?.assets?.[renderer];
+    if (!character || !preset) throw new Error('This character and renderer combination is not available.');
+    if (this.ready && this.character === characterId && this.renderer === renderer) return;
+    if (this.loadPromise && this.character === characterId && this.renderer === renderer) return this.loadPromise;
 
     if (this.loadPromise) {
       try {
@@ -82,15 +82,17 @@ export class AvatarController {
       } catch {
         // A failed previous load should not block a new selection.
       }
-      if (this.ready && this.character === character) return;
+      if (this.ready && this.character === characterId && this.renderer === renderer) return;
     }
 
-    const head = this.ensureEngine();
+    const head = this.ensureEngine(renderer);
     this.ready = false;
-    this.character = character;
+    this.character = characterId;
+    this.renderer = renderer;
     this.onStatus('Loading character…');
 
-    const currentCharacter = character;
+    const currentCharacter = characterId;
+    const currentRenderer = renderer;
     this.loadPromise = head.showAvatar(
       {
         url: preset.url,
@@ -99,39 +101,42 @@ export class AvatarController {
         lipsyncLang: 'en',
       },
       (event) => {
-        if (this.character !== currentCharacter) return;
+        if (this.character !== currentCharacter || this.renderer !== currentRenderer) return;
         const progress = progressValue(event);
         this.onStatus(progress ? `Loading character ${progress}` : 'Loading character…');
       },
     ).then(() => {
-      if (this.character !== currentCharacter) return;
+      if (this.character !== currentCharacter || this.renderer !== currentRenderer) return;
       this.ready = true;
       this.onStatus('Ready');
     }).catch((error) => {
-      if (this.character === currentCharacter) {
+      if (this.character === currentCharacter && this.renderer === currentRenderer) {
         this.ready = false;
         this.onStatus('Character unavailable');
       }
       throw error;
     }).finally(() => {
-      if (this.character === currentCharacter) this.loadPromise = null;
+      if (this.character === currentCharacter && this.renderer === currentRenderer) this.loadPromise = null;
     });
 
     return this.loadPromise;
   }
 
-  async initialize(character = 'mpfb-demo') {
-    return this.loadCharacter(character);
+  async initialize(character = 'mpfb-demo', renderer = 'talkinghead') {
+    return this.loadCharacter(character, renderer);
   }
 
   async activateAudio() {
-    const head = this.ensureEngine();
+    const head = this.ensureEngine(this.renderer ?? 'talkinghead');
     if (head.audioCtx?.state === 'suspended') await head.audioCtx.resume();
   }
 
-  async speak(text, { voice, character } = {}) {
+  async speak(text, { voice, character, renderer } = {}) {
     const targetCharacter = character ?? this.character ?? 'mpfb-demo';
-    if (!this.ready || this.character !== targetCharacter) await this.loadCharacter(targetCharacter);
+    const targetRenderer = renderer ?? this.renderer ?? 'talkinghead';
+    if (!this.ready || this.character !== targetCharacter || this.renderer !== targetRenderer) {
+      await this.loadCharacter(targetCharacter, targetRenderer);
+    }
     await this.activateAudio();
 
     const chunks = chunkForSpeech(text);
