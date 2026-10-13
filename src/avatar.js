@@ -2,7 +2,6 @@ import { TalkingHead } from '@met4citizen/talkinghead';
 import { synthesizeSpeech } from './speech.js';
 
 const AVATAR_URL = '/avatars/demo/avatar.gltf';
-
 const MAX_TTS_CHUNK = 460;
 
 function chunkForSpeech(text) {
@@ -64,8 +63,6 @@ export class AvatarController {
       lipsyncLang: 'en',
       lipsyncModules: [],
     });
-    // Resume audio while still inside the user's Start gesture. Browsers may
-    // otherwise block playback after asynchronous model loading finishes.
     if (this.head.audioCtx?.state === 'suspended') {
       await this.head.audioCtx.resume();
     }
@@ -86,7 +83,7 @@ export class AvatarController {
     this.onStatus('Ready');
   }
 
-  async speak(text) {
+  async speak(text, { voice } = {}) {
     if (!this.ready) await this.initialize();
     if (this.head.audioCtx?.state === 'suspended') {
       await this.head.audioCtx.resume();
@@ -95,9 +92,8 @@ export class AvatarController {
     const chunks = chunkForSpeech(text);
     for (const chunk of chunks) {
       this.onSubtitle(chunk);
-      const data = await synthesizeSpeech(chunk, this.head.audioCtx);
+      const data = await synthesizeSpeech(chunk, this.head.audioCtx, undefined, undefined, { voice });
       this.head.speakAudio(data, { lipsyncLang: 'en', isRaw: true });
-
       await new Promise((resolve) => this.head.speakMarker(resolve));
     }
 
