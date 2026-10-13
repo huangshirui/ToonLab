@@ -15,8 +15,10 @@ import {
   saveSetting,
 } from './storage.js';
 
-const INTRO_TEXT =
-  "Hello, and welcome to ToonLab. I'm an interactive animated character. Open the controls when you're ready to ask me something new.";
+const INTRO_SETUP_TEXT =
+  "Welcome to ToonLab. Before we begin, choose a demo code or add your OpenRouter API key in Settings.";
+const INTRO_READY_TEXT =
+  "Welcome back to ToonLab. You're ready to go. Ask me anything you'd like to explore.";
 
 const mobileQuery = window.matchMedia('(max-width: 860px)');
 const elements = {
@@ -327,14 +329,16 @@ elements.startButton.addEventListener('click', async () => {
   elements.startButton.disabled = true;
   setAppStatus('');
 
+  const credentialReady = normalizeStoredAuthMode();
+  syncAuthUi();
+  const introText = credentialReady ? INTRO_READY_TEXT : INTRO_SETUP_TEXT;
+  elements.welcome.hidden = true;
+
   try {
     await avatar.activateAudio();
     await avatar.loadCharacter(settings.character, settings.renderer);
-    elements.welcome.classList.add('is-speaking');
-    await speakCharacter(INTRO_TEXT);
+    await speakCharacter(introText);
 
-    const credentialReady = normalizeStoredAuthMode();
-    syncAuthUi();
     if (credentialReady) {
       unlockExperience({ tab: 'conversation', returningUser: true });
     } else {
@@ -343,7 +347,7 @@ elements.startButton.addEventListener('click', async () => {
   } catch (error) {
     console.error(error);
     elements.startButton.disabled = false;
-    elements.welcome.classList.remove('is-speaking');
+    elements.welcome.hidden = false;
     setAppStatus(error.message ?? 'Could not start ToonLab.', 'error');
   }
 });
