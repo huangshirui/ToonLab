@@ -3,6 +3,7 @@ import { synthesizeSpeech } from './speech.js';
 import { getCharacter } from './characters.js';
 
 const MAX_TTS_CHUNK = 460;
+const SPEECH_GAIN = 1.8;
 
 function chunkForSpeech(text) {
   const clean = text.replace(/\s+/g, ' ').trim();
@@ -77,6 +78,7 @@ export class AvatarController {
       cameraView: 'upper',
       lipsyncLang: 'en',
       lipsyncModules: [],
+      mixerGainSpeech: SPEECH_GAIN,
     });
     return this.head;
   }
