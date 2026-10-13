@@ -1,5 +1,4 @@
 import { TalkingHead } from '@met4citizen/talkinghead';
-import { LipsyncEn } from '@met4citizen/talkinghead/modules/lipsync-en.mjs';
 import { synthesizeSpeech } from './speech.js';
 
 const AVATAR_URL =
@@ -68,10 +67,6 @@ export class AvatarController {
       lipsyncLang: 'en',
       lipsyncModules: [],
     });
-    // Bundle the processor: TalkingHead's runtime relative imports would not
-    // resolve after Vite builds the page.
-    this.head.lipsync.en = new LipsyncEn();
-
     // Resume audio while still inside the user's Start gesture. Browsers may
     // otherwise block playback after asynchronous model loading finishes.
     if (this.head.audioCtx?.state === 'suspended') {

@@ -2,77 +2,76 @@
 
 **AI-driven character animation experiments · AI 驱动的动画角色实验**
 
-Production target: **https://toonlab.verinasci.com**
+Production target: https://toonlab.verinasci.com
 
-## P0 experiment / 首版链路
+## 首版链路
 
-1. Click **Start ToonLab** to unlock browser audio and load the 3D character.
-2. Microsoft Edge Read Aloud generates a fixed introduction; no TTS or LLM key is needed.
-3. Save an OpenRouter key in this browser, then enter a prompt.
-4. `/api/chat` forwards the prompt to OpenRouter and returns English text.
-5. `/api/tts` returns Microsoft MP3 audio and word boundary timings.
-6. TalkingHead plays the decoded audio and derives English visemes from timed words.
+点击 Start ToonLab → Azure Speech 合成固定介绍 → 用户在本地保存 OpenRouter Key → Worker 请求大模型 → Azure Speech 合成回复 → TalkingHead 同步播放音频和口型。
 
-首版改用微软 **Edge Read Aloud 在线语音**，默认 `en-US-AriaNeural`。无需 Azure Key、HeadTTS / Kokoro 模型下载或 WebGPU 推理。角色渲染、音频播放和口型计算仍在浏览器运行。
+使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前实验保留英语输出。
 
-## Speech architecture / 语音架构
+## 语音与口型架构
 
-Browser → same-origin `POST /api/tts` → Cloudflare Worker → Microsoft WebSocket
+- Worker `POST /api/tts/token` 使用资源密钥向 Azure STS 换取短期令牌（有效期 10 分钟）。响应 `no-store`；浏览器只在一次合成的内存中使用令牌。
+- 浏览器使用打包的 Microsoft Speech SDK，订阅 `visemeReceived`，同时接收 WAV 音频和 Azure 原生 Viseme ID / audioOffset。
+- 100 ns 时间单位转换为毫秒；22 个 Azure Viseme 映射到 TalkingHead 的 Oculus 嘴形。双元音使用代表嘴形，属于角色绑定映射的近似，不是单词内部时间推算。
+- SDK 禁用自行播放音频，TalkingHead 统一控制音频与嘴形，避免双重播放。静音事件用于结束前一个嘴形。
+- 缺少原生 Viseme 时明确失败，不回退到根据英文单词推算口型。
+- 文本分段至 460 字符，每段上限 500；合成超时 30 秒、音频上限 2 MB；成功、失败、取消结果、超时均关闭 synthesizer。
+- P0 仍为每段合成完再播放，尚未实现流式低延迟对话。
 
-The Worker collects one short utterance and returns MP3 + `words`, `wtimes`, `wdurations`. Microsoft timing units (100 ns) are converted to milliseconds. The browser decodes MP3 into an AudioBuffer and calls TalkingHead `speakAudio`. The English lip-sync processor is bundled with the frontend, avoiding unresolved runtime imports after Vite builds.
+## Azure 免费资源配置
 
-- Browser chunks long text into at most 460 characters; the endpoint accepts at most 500.
-- Worker bounds the actual request body at 8 KB and audio at 2 MB.
-- Upstream connection timeout: 10 seconds; synthesis timeout: 30 seconds; browser timeout: 45 seconds.
-- Completion, failure, cancellation and timeout close the upstream socket.
-- This P0 buffers each short utterance before playback; it is not real-time streaming audio.
+在 Azure Portal 创建 **Speech** 资源，定价层选择 **Free F0**（不是 S0）。官方定价目前为神经 TTS 每月免费 50 万字符；F0 的额度和并发受平台限制，额度耗尽时应报错，不自动升级付费。
 
-微软免费接口提供音频和单词时间戳，**不提供 Azure Speech 的原生 viseme 事件**。口型由 TalkingHead 根据英文单词推导，因此当前 P0 仍输出英语。文本会发送到微软，不再是设备端离线合成。该消费端接口并非有 SLA 的 Azure API，协议变化、拒绝访问或限流时会明确报错，允许重试。
+代码调用同一官方 API，不能从资源 Key 推断 F0 / S0；免费属性由 Azure 资源的定价层决定。
 
-Protocol reference: [rany2/edge-tts](https://github.com/rany2/edge-tts). ToonLab independently implements the small protocol adapter; no Python service or additional persistent infrastructure is required.
+本地：复制 `.dev.vars.example` 为 `.dev.vars`，填写资源的 Key 和 Region，文件不会提交 git。
 
-## BYOK security boundary / Key 安全边界
+生产：
 
-- OpenRouter keys belong to users and are saved only in browser `localStorage`, with replacement and deletion controls.
-- The key is sent only in the `Authorization` header of `/api/chat`, then used for that OpenRouter request.
-- `/api/tts` does not send or forward OpenRouter keys; its Microsoft headers are constructed independently.
-- The Worker does not log, persist or cache keys or synthesized speech; API responses use `Cache-Control: no-store`.
-- Cross-origin browser API calls are rejected; same-origin deployments and localhost development are supported.
-- No D1, KV, R2, Queue, Durable Object, account system or server-side user key vault is introduced.
-- UI libraries and the English lip-sync processor are bundled with ToonLab, without runtime CDN script injection.
+```bash
+npx wrangler secret put AZURE_SPEECH_KEY
+npx wrangler secret put AZURE_SPEECH_REGION
+npm run deploy
+```
 
-## Development / 开发
+Region 必须是资源的区域标识（例如 `eastasia`），不是 URL。资源密钥仅保存在 Worker Secret，不放入前端、Vite 环境变量、仓库或 localStorage。
 
-Node.js 22+ required.
+令牌具备临时访问资源的权限。此 P0 的令牌端点面向站点访问者开放；Origin 检查不等同于认证，令牌可在到期前被站外复用，浏览器文本长度限制也不是资源级限额。公开实验使用专用 F0 资源；后续需要严格用户配额时，再加认证与访问控制。
+
+## OpenRouter Key 安全边界
+
+- 用户 Key 仅存浏览器 localStorage，可修改或清除。
+- Key 只发送至 `/api/chat`，Worker 只用于对应 OpenRouter 请求。
+- `/api/tts/token` 不发送或转发 OpenRouter Key；Azure 资源密钥不返回浏览器。
+- 不记录、持久化或缓存令牌和语音；前端依赖通过本地构建打包。
+- 无 D1、KV、R2、Queues、DO 或用户 Key 服务端存储。
+
+## 开发与验证
+
+Node.js 22+。
 
 ```bash
 npm ci
 npm run dev
-```
-
-The full Worker + Static Assets app runs through Wrangler. `npm run dev:web` is frontend-only Vite HMR; speech and chat require the Worker routes.
-
-```bash
-npm test
 npm run check
 ```
 
-`check` runs protocol / error / credential-isolation tests, Vite build and Wrangler deployment dry-run. Mock protocol tests do not establish that Microsoft's live endpoint accepts a deployment or that browser audio and visible lip sync are correct. After deployment, verify the introduction, a generated reply, retry after an upstream failure, and mobile audio activation.
+`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
 
-## Deployment / 部署
+Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
 
-```bash
-npm run deploy
-```
+GitHub Actions 提供手动部署，需配置 `CLOUDFLARE_API_TOKEN`；Azure 两项 Worker Secret 需事先配置。
 
-Alternatively, configure the repository Actions secret `CLOUDFLARE_API_TOKEN` and manually run **Deploy to Cloudflare**. The non-secret Cloudflare account ID is pinned in the workflow. The deploying account must own the `verinasci.com` zone for the configured Custom Domain.
+## 官方参考
 
-## Stack / 技术栈
+- [Azure Speech 免费定价](https://azure.microsoft.com/en-us/pricing/details/speech/)
+- [STS Token](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech#how-to-get-an-sts-access-token)
+- [原生 Viseme](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-speech-synthesis-viseme)
 
-Vite · Cloudflare Workers + Static Assets · TalkingHead 1.7 · Three.js 0.180 · Microsoft Edge Read Aloud · OpenRouter (`openrouter/auto`).
+## 技术栈与许可
 
-The initial avatar is a replaceable reference asset. Final character art direction remains open.
+Vite · Cloudflare Workers + Static Assets · Microsoft Speech SDK · TalkingHead · Three.js · OpenRouter。
 
-## License
-
-MIT
+初始角色为可替换参考模型。MIT。

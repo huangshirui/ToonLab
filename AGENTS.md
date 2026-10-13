@@ -4,8 +4,8 @@
 ToonLab is a Web-first experiment for AI-driven animated characters. Keep the project small and measurable. Prefer a working end-to-end experiment over framework or platform abstraction.
 
 ## Current P0 contract
-- Browser renders the avatar, plays audio and performs lip-sync. The Worker synthesizes speech through Microsoft Edge Read Aloud (`/api/tts`), without an Azure key.
-- `/api/tts` never forwards OpenRouter credentials; do not log, persist or cache speech text/audio. Keep requests bounded and clean up upstream WebSockets on completion, failure or timeout.
+- Browser renders the avatar, plays audio and performs lip-sync. Use the official Azure Speech SDK in the browser with native VisemeReceived events. The Worker issues short-lived tokens at `/api/tts/token` using an Azure Speech F0 resource.
+- `/api/tts/token` never forwards OpenRouter credentials. Store AZURE_SPEECH_KEY only as a Worker Secret; never return it. Tokens stay in browser memory only. Do not log, persist or cache tokens or speech. Close the SDK synthesizer on success, failure or timeout. Do not use Edge Read Aloud or fall back to inferred word-based mouth shapes.
 - OpenRouter is BYOK. The API key is owned by the user and stored only in browser `localStorage`.
 - The browser sends the key only in the request `Authorization` header to `/api/chat`.
 - The Cloudflare Worker may use the key only for the corresponding OpenRouter request. Never log, persist, cache, echo, or place it in analytics, D1, KV, R2, Queues, Durable Objects, or error payloads.
