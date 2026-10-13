@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker/index.js';
-import { synthesizeSpeech } from '../src/speech.js';
+import { buildSubtitleCues, synthesizeSpeech } from '../src/speech.js';
 import { toTalkingHeadVisemes } from '../src/visemes.js';
 const env = { AZURE_SPEECH_KEY: 'resource-secret', AZURE_SPEECH_REGION: 'eastasia' };
 const request = (init = {}) => new Request('https://toonlab.verinasci.com/api/tts/token', { method: 'POST', ...init });
@@ -57,6 +57,24 @@ test('native viseme timing maps closed lips, rounding and silence without guesse
   assert.throws(() => toTalkingHeadVisemes([{ id: 21, time: 100 }, { id: 7, time: 50 }], 500));
 });
 
+test('subtitle cues advance using speech word-boundary timing', () => {
+  const cues = buildSubtitleCues('Alpha beta gamma delta', [
+    { time: 0, textOffset: 0, wordLength: 5 },
+    { time: 400, textOffset: 6, wordLength: 4 },
+    { time: 800, textOffset: 11, wordLength: 5 },
+    { time: 1200, textOffset: 17, wordLength: 5 },
+  ], 1600, 10);
+  assert.deepEqual(cues, [
+    { time: 0, text: 'Alpha beta' },
+    { time: 800, text: 'gamma delta' },
+  ]);
+
+  const fallback = buildSubtitleCues('Alpha beta gamma delta', [], 2000, 10);
+  assert.equal(fallback.length, 3);
+  assert.equal(fallback[0].time, 0);
+  assert.ok(fallback[1].time > 0);
+});
+
 function mockSdk(mode = 'success') {
   const state = { closed: 0 };
   return {
@@ -102,6 +120,7 @@ test('SDK buffers audio once, converts native offsets and closes before TalkingH
   assert.deepEqual(data.vtimes, [100, 200]);
   assert.deepEqual(data.visemes, ['PP', 'U']);
   assert.deepEqual(data.words, []);
+  assert.deepEqual(data.subtitleCues, [{ time: 0, text: 'Hello' }]);
 });
 
 test('selected voice overrides the Worker default without exposing Azure secrets', async t => {
