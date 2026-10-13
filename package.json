@@ -13,7 +13,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@met4citizen/talkinghead": "^1.7.0",
+    "@met4citizen/talkinghead": "git+https://github.com/met4citizen/TalkingHead.git#2afe6d79779313db8909badebf46f9805a6c7b70",
     "microsoft-cognitiveservices-speech-sdk": "^1.52.0",
     "three": "^0.180.0"
   },
