@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { AVATAR_SOURCES } from '../scripts/prepare-avatar.mjs';
 import { CHARACTERS, RENDERERS } from '../src/characters.js';
 import { DEFAULT_SETTINGS } from '../src/storage.js';
 
@@ -61,10 +62,21 @@ test('start hides onboarding before speech and uses credential-aware intro copy'
   assert.match(startHandler, /elements\.welcome\.hidden = false/);
 });
 
-test('character registry separates character from renderer', () => {
-  const character = CHARACTERS['mpfb-demo'];
-  assert.equal(character.defaultRenderer, 'talkinghead');
-  assert.deepEqual(character.renderers, ['talkinghead']);
-  assert.ok(character.assets.talkinghead.url);
+test('character registry exposes every upstream TalkingHead sample character', () => {
+  const expectedIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
+  assert.deepEqual(Object.keys(CHARACTERS), expectedIds);
+  assert.deepEqual(AVATAR_SOURCES.map(source => source.id), expectedIds);
+
+  for (const id of expectedIds) {
+    const character = CHARACTERS[id];
+    assert.equal(character.defaultRenderer, 'talkinghead');
+    assert.deepEqual(character.renderers, ['talkinghead']);
+    assert.ok(character.assets.talkinghead.url);
+  }
+
+  assert.equal(CHARACTERS['ready-player-me'].name, 'Ready Player Me');
+  assert.equal(CHARACTERS.avaturn.name, 'Avaturn');
+  assert.equal(CHARACTERS.avatarsdk.name, 'AvatarSDK');
+  assert.equal(CHARACTERS.vroid.name, 'VRoid');
   assert.equal(RENDERERS.talkinghead.name, 'TalkingHead');
 });
