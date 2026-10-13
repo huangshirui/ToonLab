@@ -10,15 +10,15 @@ Production target: https://toonlab.verinasci.com
 
 页面为单屏响应式布局：Desktop 左侧角色、右侧交互；Mobile 角色全屏，Conversation / Settings 收在底部抽屉。角色说话时 Mobile 抽屉自动收起，用户仍可手动展开。回复文本以角色底部单行字幕显示，并按 TTS word-boundary 时间随发音推进。
 
-角色资源会在页面打开后异步预加载；首次加载和后续切换角色都使用角色区域内的统一加载状态。浏览器音频仍在首次用户交互时激活，以符合自动播放限制。
+角色资源会在页面打开后异步预加载；首次加载和后续切换角色都使用角色区域内的统一加载状态。角色切换期间整个 Settings / Conversation 控制区会暂时锁定，避免在加载或回滚期间产生并发状态。浏览器音频仍在首次用户交互时激活，以符合自动播放限制。
 
 如果浏览器已经保存 Demo Code 或 OpenRouter API Key，则跳过首次 Start 引导并直接进入 Conversation；如果没有凭证，首次介绍结束后自动进入 Settings → OpenRouter access，并聚焦当前凭证输入框。
 
-使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Sara 四个 en-US Neural voice，当前实验保留英语输出。
+使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Sara 四个 en-US Neural voice，当前实验保留英语输出。TalkingHead 播放链统一使用 speech gain 提升语音响度。
 
 OpenRouter 模型可直接输入 model id，默认 `openrouter/free`。Conversation 页面不展示具体模型名称；模型只在 Settings 中配置。
 
-角色设置在 Settings 中只显示当前角色和 Change。点击 Change 打开 Character Picker，可查看角色名称、类型和简介，并选择 Renderer。当前 Renderer 只有 `TalkingHead`；数据模型已将 `character` 与 `renderer` 分开保存，为后续增加其他 renderer（例如 Live2D）预留接口。
+角色设置在 Settings 中只显示当前角色和 Change。点击 Change 打开 Character Picker，先选择 Renderer，再查看和选择该 Renderer 下的角色。当前 Renderer 只有 `TalkingHead`；数据模型已将 `character` 与 `renderer` 分开保存，为后续增加其他 renderer（例如 Live2D）预留接口。
 
 TalkingHead 当前上游仓库提供的 5 类示例角色都已加入 ToonLab：
 
@@ -28,7 +28,9 @@ TalkingHead 当前上游仓库提供的 5 类示例角色都已加入 ToonLab：
 - AvatarSDK / MetaPerson
 - VRoid
 
-`brunette-t.glb` 只是 Ready Player Me 示例的另一参考姿态，不作为独立角色。角色资产在构建时从固定 TalkingHead commit 下载并校验 Git blob hash，然后由 ToonLab 同源提供；不会在浏览器运行时依赖第三方角色域名。
+`brunette-t.glb` 只是 Ready Player Me 示例的另一参考姿态，不作为独立角色。
+
+角色资产、角色 preset 和 TalkingHead 浏览器 runtime **锁定到同一个上游 commit** `2afe6d79779313db8909badebf46f9805a6c7b70`。构建时分别下载并校验 Git blob hash，再由 ToonLab 打包或同源提供。这样 Avaturn / AvatarSDK 使用的骨骼 retarget、MPFB / VRoid 的 dynamic-bones 配置与实际 runtime 保持一致，不依赖浏览器运行时访问第三方角色域名，也不受 npm 已发布版本与上游角色样例不同步的影响。
 
 ## 语音与口型架构
 
@@ -94,9 +96,9 @@ npm run dev
 npm run check
 ```
 
-`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、默认模型、角色 registry、令牌隔离、Viseme/字幕时间映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
+`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。构建与测试会先准备并校验 pinned TalkingHead runtime；角色资产同样按固定上游 commit 准备。`check` 包含 OpenRouter 两种鉴权、默认模型、角色 registry / preset、runtime 锁定、令牌隔离、Viseme/字幕时间映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
 
-Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
+Mock 测试不代表真实 Azure 合成或浏览器动画已验收。配置 F0 资源后应逐个验证五个角色的加载、待机、说话、姿态切换、手臂/头发等骨骼表现，以及固定介绍、模型回复、闭唇/圆唇、停顿收口和移动端音频激活。
 
 GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variables → Actions 配置两个 repository secrets：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。Account ID 填管理 `verinasci.com` 的 Cloudflare 账号 ID。Azure 与可选 Demo Code/OpenRouter Demo Key 等 Worker Secret 需事先配置在 Cloudflare Worker。
 
