@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { AVATAR_SOURCES, PINNED_COMMIT } from '../scripts/prepare-avatar.mjs';
+import { LIVE2D_RUNTIME_FILES } from '../scripts/prepare-live2d.mjs';
 import { TALKINGHEAD_RUNTIME_FILES } from '../scripts/prepare-talkinghead.mjs';
-import { CHARACTERS, RENDERERS } from '../src/characters.js';
+import { CHARACTERS, RENDERERS, listCharacters, listRenderers } from '../src/characters.js';
 import { DEFAULT_SETTINGS } from '../src/storage.js';
 
 const indexPath = new URL('../index.html', import.meta.url);
@@ -109,12 +110,22 @@ test('TalkingHead runtime is pinned to the same upstream commit as avatar assets
   assert.match(packageJson.scripts.test, /prepare:talkinghead/);
 });
 
-test('character registry keeps TalkingHead samples and adds official Live2D samples', () => {
+test('character registry separates TalkingHead and all official Live2D free samples', () => {
   const expectedTalkingHeadIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
-  const talkingHeadIds = Object.values(CHARACTERS)
-    .filter(character => character.defaultRenderer === 'talkinghead')
-    .map(character => character.id);
-  assert.deepEqual(talkingHeadIds, expectedTalkingHeadIds);
+  const expectedLive2DIds = [
+    'live2d-haru',
+    'live2d-hiyori',
+    'live2d-mao',
+    'live2d-mark',
+    'live2d-natori',
+    'live2d-ren',
+    'live2d-rice',
+    'live2d-wanko',
+  ];
+
+  assert.deepEqual(listRenderers().map(renderer => renderer.id), ['talkinghead', 'live2d']);
+  assert.deepEqual(listCharacters('talkinghead').map(character => character.id), expectedTalkingHeadIds);
+  assert.deepEqual(listCharacters('live2d').map(character => character.id), expectedLive2DIds);
   assert.deepEqual(AVATAR_SOURCES.map(source => source.id), expectedTalkingHeadIds);
 
   for (const id of expectedTalkingHeadIds) {
@@ -131,7 +142,7 @@ test('character registry keeps TalkingHead samples and adds official Live2D samp
   assert.equal(RENDERERS.talkinghead.name, 'TalkingHead');
   assert.equal(RENDERERS.live2d.name, 'Live2D');
 
-  for (const id of ['live2d-hiyori', 'live2d-wanko']) {
+  for (const id of expectedLive2DIds) {
     const character = CHARACTERS[id];
     assert.equal(character.defaultRenderer, 'live2d');
     assert.deepEqual(character.renderers, ['live2d']);
@@ -162,16 +173,36 @@ test('character registry keeps TalkingHead samples and adds official Live2D samp
   assert.ok(vroid.modelDynamicBones.some(bone => bone.bone === 'J_Sec_Hair2_12' && bone.pivot === true));
 });
 
-test('Live2D runtime is sandboxed away from parent credentials and consumes Azure viseme timing', async () => {
+test('character picker filters characters by the renderer selected above them', async () => {
+  const main = await readFile(mainPath, 'utf8');
+  assert.match(main, /for \(const renderer of listRenderers\(\)\)/);
+  assert.match(main, /const available = listCharacters\(pendingRenderer\)/);
+  assert.match(main, /pendingRenderer = elements\.renderer\.value;[\s\S]*renderCharacterPicker\(\)/);
+  assert.doesNotMatch(main, /pendingRenderer = character\.renderers\.includes\(pendingRenderer\)/);
+});
+
+test('Live2D runtime remains sandboxed, same-origin at runtime and protected from Cloudflare HTML injection', async () => {
   const bridge = await readFile(live2dPath, 'utf8');
   const frame = await readFile(live2dFramePath, 'utf8');
   const avatar = await readFile(avatarPath, 'utf8');
+  const worker = await readFile(workerPath, 'utf8');
+  const packageJson = JSON.parse(await readFile(packagePath, 'utf8'));
 
   assert.match(bridge, /setAttribute\('sandbox', 'allow-scripts'\)/);
   assert.doesNotMatch(bridge, /allow-same-origin/);
-  assert.match(frame, /https:\/\/cubism\.live2d\.com\/sdk-web\/cubismcore\/live2dcubismcore\.min\.js/);
-  assert.match(frame, /pixi-live2d-display@0\.4\.0/);
+  assert.match(frame, /src="\/live2d-runtime\/live2dcubismcore\.min\.js"/);
+  assert.match(frame, /src="\/live2d-runtime\/pixi\.min\.js"/);
+  assert.match(frame, /src="\/live2d-runtime\/cubism4\.min\.js"/);
+  assert.doesNotMatch(frame, /<script src="https:\/\//);
   assert.match(frame, /MOUTH_OPEN_BY_VISEME/);
   assert.match(avatar, /data\.azureVisemes/);
   assert.doesNotMatch(frame, /localStorage|openrouter|Authorization/);
+
+  assert.deepEqual(
+    LIVE2D_RUNTIME_FILES.map(file => file.filename),
+    ['live2dcubismcore.min.js', 'pixi.min.js', 'cubism4.min.js'],
+  );
+  assert.match(packageJson.scripts.build, /prepare:live2d/);
+  assert.match(worker, /url\.pathname !== '\/live2d-frame\.html'/);
+  assert.match(worker, /Cache-Control', 'public, max-age=300, no-transform'/);
 });
