@@ -7,3 +7,6 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+
+.avatar-cache/
+public/avatars/demo/
