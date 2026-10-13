@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '../src/storage.js';
 
 const indexPath = new URL('../index.html', import.meta.url);
 const mainPath = new URL('../src/main.js', import.meta.url);
+const avatarPath = new URL('../src/avatar.js', import.meta.url);
 const workerPath = new URL('../worker/index.js', import.meta.url);
 
 test('settings and conversation markup match the agreed UI contract', async () => {
@@ -31,6 +32,10 @@ test('settings and conversation markup match the agreed UI contract', async () =
   assert.match(html, /id="character-dialog"/);
   assert.match(html, /id="renderer"/);
   assert.doesNotMatch(html, /<select id="character"/);
+
+  const rendererIndex = html.indexOf('class="renderer-picker"');
+  const characterListIndex = html.indexOf('id="character-list"');
+  assert.ok(rendererIndex >= 0 && characterListIndex > rendererIndex, 'Renderer must appear before character choices.');
 });
 
 test('default settings and worker both use openrouter/free', async () => {
@@ -62,6 +67,24 @@ test('start hides onboarding before speech and uses credential-aware intro copy'
   assert.match(startHandler, /elements\.welcome\.hidden = false/);
 });
 
+test('character switching locks all controls until load or rollback finishes', async () => {
+  const main = await readFile(mainPath, 'utf8');
+  assert.match(main, /elements\.controlPanel\.inert = switching/);
+  assert.match(main, /setAttribute\('aria-busy', 'true'\)/);
+
+  const handlerStart = main.indexOf("elements.selectCharacter.addEventListener('click'");
+  const handlerEnd = main.indexOf("elements.voice.addEventListener('change'", handlerStart);
+  const handler = main.slice(handlerStart, handlerEnd);
+  assert.match(handler, /setCharacterSwitching\(true\)/);
+  assert.match(handler, /finally\s*{\s*setCharacterSwitching\(false\)/s);
+});
+
+test('speech output has a deliberate gain boost', async () => {
+  const avatar = await readFile(avatarPath, 'utf8');
+  assert.match(avatar, /const SPEECH_GAIN = 1\.8/);
+  assert.match(avatar, /mixerGainSpeech: SPEECH_GAIN/);
+});
+
 test('character registry exposes every upstream TalkingHead sample character', () => {
   const expectedIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
   assert.deepEqual(Object.keys(CHARACTERS), expectedIds);
@@ -79,4 +102,10 @@ test('character registry exposes every upstream TalkingHead sample character', (
   assert.equal(CHARACTERS.avatarsdk.name, 'AvatarSDK');
   assert.equal(CHARACTERS.vroid.name, 'VRoid');
   assert.equal(RENDERERS.talkinghead.name, 'TalkingHead');
+
+  const vroid = CHARACTERS.vroid.assets.talkinghead;
+  assert.equal(vroid.avatarMood, 'neutral');
+  assert.ok(Array.isArray(vroid.modelDynamicBones));
+  assert.ok(vroid.modelDynamicBones.length > 30, 'VRoid must keep the pinned upstream dynamic-bone preset.');
+  assert.ok(vroid.modelDynamicBones.some(bone => bone.bone === 'J_Sec_Hair2_12' && bone.pivot === true));
 });
