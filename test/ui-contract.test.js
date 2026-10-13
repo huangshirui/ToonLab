@@ -44,6 +44,23 @@ test('default settings and worker both use openrouter/free', async () => {
   assert.doesNotMatch(main, /Ready ·/);
 });
 
+test('start hides onboarding before speech and uses credential-aware intro copy', async () => {
+  const main = await readFile(mainPath, 'utf8');
+  assert.match(main, /INTRO_SETUP_TEXT/);
+  assert.match(main, /INTRO_READY_TEXT/);
+
+  const startIndex = main.indexOf("elements.startButton.addEventListener('click'");
+  const endIndex = main.indexOf("elements.model.addEventListener('change'", startIndex);
+  const startHandler = main.slice(startIndex, endIndex);
+
+  const hideIndex = startHandler.indexOf('elements.welcome.hidden = true');
+  const speakIndex = startHandler.indexOf('await speakCharacter(introText)');
+  assert.ok(hideIndex >= 0 && speakIndex > hideIndex);
+  assert.doesNotMatch(startHandler, /is-speaking/);
+  assert.match(startHandler, /credentialReady \? INTRO_READY_TEXT : INTRO_SETUP_TEXT/);
+  assert.match(startHandler, /elements\.welcome\.hidden = false/);
+});
+
 test('character registry separates character from renderer', () => {
   const character = CHARACTERS['mpfb-demo'];
   assert.equal(character.defaultRenderer, 'talkinghead');
