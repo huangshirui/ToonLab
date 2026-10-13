@@ -5,15 +5,16 @@
   "type": "module",
   "description": "AI-driven character animation experiments",
   "scripts": {
+    "prepare:talkinghead": "node scripts/prepare-talkinghead.mjs",
     "dev": "npm run build && wrangler dev",
-    "dev:web": "node scripts/prepare-avatar.mjs && vite",
-    "build": "node scripts/prepare-avatar.mjs && vite build",
+    "dev:web": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite",
+    "build": "npm run prepare:talkinghead && node scripts/prepare-avatar.mjs && vite build",
     "check": "npm test && npm run build && wrangler deploy --dry-run --outdir .wrangler-dry-run",
     "deploy": "npm run build && wrangler deploy",
-    "test": "node --test"
+    "test": "npm run prepare:talkinghead && node --test"
   },
   "dependencies": {
-    "@met4citizen/talkinghead": "git+https://github.com/met4citizen/TalkingHead.git#2afe6d79779313db8909badebf46f9805a6c7b70",
+    "@met4citizen/talkinghead": "^1.7.0",
     "microsoft-cognitiveservices-speech-sdk": "^1.52.0",
     "three": "^0.180.0"
   },
