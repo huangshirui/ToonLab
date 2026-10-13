@@ -1,6 +1,8 @@
 import './styles.css';
+import './character-picker.css';
 import { generateReply } from './api.js';
 import { AvatarController } from './avatar.js';
+import { getCharacter, getRenderer, listCharacters } from './characters.js';
 import {
   DEFAULT_SETTINGS,
   clearApiKey,
@@ -30,8 +32,6 @@ const elements = {
   tabs: [...document.querySelectorAll('.tab-button')],
   tabPanels: [...document.querySelectorAll('.tab-panel')],
   model: document.querySelector('#model'),
-  modelBadge: document.querySelector('#model-badge'),
-  character: document.querySelector('#character'),
   voice: document.querySelector('#voice'),
   authModes: [...document.querySelectorAll('input[name="auth-mode"]')],
   authStatus: document.querySelector('#auth-status'),
@@ -49,10 +49,21 @@ const elements = {
   prompt: document.querySelector('#prompt'),
   sendButton: document.querySelector('#send-button'),
   appStatus: document.querySelector('#app-status'),
+  currentCharacterName: document.querySelector('#current-character-name'),
+  currentCharacterMeta: document.querySelector('#current-character-meta'),
+  changeCharacter: document.querySelector('#change-character'),
+  characterDialog: document.querySelector('#character-dialog'),
+  characterList: document.querySelector('#character-list'),
+  renderer: document.querySelector('#renderer'),
+  rendererDescription: document.querySelector('#renderer-description'),
+  closeCharacterDialog: document.querySelector('#close-character-dialog'),
+  cancelCharacter: document.querySelector('#cancel-character'),
+  selectCharacter: document.querySelector('#select-character'),
 };
 
 let settings = loadSettings();
-let activeTab = 'conversation';
+let pendingCharacter = settings.character;
+let pendingRenderer = settings.renderer;
 
 function setAppStatus(message, kind = 'neutral') {
   elements.appStatus.textContent = message;
@@ -66,7 +77,6 @@ function setPanelOpen(open) {
 }
 
 function activateTab(name) {
-  activeTab = name;
   for (const tab of elements.tabs) {
     const selected = tab.dataset.tab === name;
     tab.classList.toggle('is-active', selected);
@@ -119,13 +129,29 @@ function syncAuthUi() {
   elements.authStatus.dataset.configured = String(configured);
 }
 
+function normalizeCharacterSettings() {
+  const character = getCharacter(settings.character);
+  if (!character) {
+    settings.character = persistSetting('character', DEFAULT_SETTINGS.character);
+  }
+
+  const activeCharacter = getCharacter(settings.character);
+  if (!activeCharacter?.renderers.includes(settings.renderer)) {
+    settings.renderer = persistSetting('renderer', activeCharacter?.defaultRenderer ?? DEFAULT_SETTINGS.renderer);
+  }
+}
+
+function syncCurrentCharacterUi() {
+  const character = getCharacter(settings.character);
+  const renderer = getRenderer(settings.renderer);
+  elements.currentCharacterName.textContent = character?.name ?? 'Character';
+  elements.currentCharacterMeta.textContent = [character?.type, renderer?.name].filter(Boolean).join(' · ');
+}
+
 function syncSettingsUi() {
   elements.model.value = settings.model || DEFAULT_SETTINGS.model;
-  elements.modelBadge.textContent = elements.model.value;
-
-  const characterExists = [...elements.character.options].some(option => option.value === settings.character);
-  elements.character.value = characterExists ? settings.character : DEFAULT_SETTINGS.character;
-  if (!characterExists) settings.character = persistSetting('character', DEFAULT_SETTINGS.character);
+  normalizeCharacterSettings();
+  syncCurrentCharacterUi();
 
   const voiceExists = [...elements.voice.options].some(option => option.value === settings.voice);
   elements.voice.value = voiceExists ? settings.voice : DEFAULT_SETTINGS.voice;
@@ -149,16 +175,96 @@ function toggleSecret(input, button, noun) {
   button.textContent = showing ? `Show ${noun}` : `Hide ${noun}`;
 }
 
-function unlockExperience({ returningUser = false } = {}) {
+function focusCredentialInput() {
+  const target = settings.authMode === 'demo' ? elements.demoCode : elements.apiKey;
+  requestAnimationFrame(() => target.focus());
+}
+
+function unlockExperience({ tab = 'conversation', returningUser = false, forceOpen = false, focusCredential = false } = {}) {
   elements.welcome.hidden = true;
   elements.controlPanel.classList.remove('is-locked');
-  activateTab('conversation');
-  if (!mobileQuery.matches) {
-    setPanelOpen(true);
-    if (returningUser) elements.prompt.focus();
+  activateTab(tab);
+
+  if (mobileQuery.matches) {
+    setPanelOpen(forceOpen);
   } else {
-    setPanelOpen(false);
+    setPanelOpen(true);
   }
+
+  if (focusCredential) {
+    focusCredentialInput();
+  } else if (returningUser && !mobileQuery.matches) {
+    requestAnimationFrame(() => elements.prompt.focus());
+  }
+}
+
+function syncRendererPicker() {
+  const character = getCharacter(pendingCharacter);
+  elements.renderer.replaceChildren();
+
+  for (const rendererId of character?.renderers ?? []) {
+    const renderer = getRenderer(rendererId);
+    if (!renderer) continue;
+    const option = document.createElement('option');
+    option.value = renderer.id;
+    option.textContent = renderer.name;
+    elements.renderer.append(option);
+  }
+
+  if (!character?.renderers.includes(pendingRenderer)) {
+    pendingRenderer = character?.defaultRenderer ?? DEFAULT_SETTINGS.renderer;
+  }
+  elements.renderer.value = pendingRenderer;
+  elements.rendererDescription.textContent = getRenderer(pendingRenderer)?.description ?? '';
+}
+
+function renderCharacterPicker() {
+  elements.characterList.replaceChildren();
+
+  for (const character of listCharacters()) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'character-option';
+    button.dataset.character = character.id;
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', String(character.id === pendingCharacter));
+    button.classList.toggle('is-selected', character.id === pendingCharacter);
+
+    const preview = document.createElement('div');
+    preview.className = 'character-option-preview';
+    preview.setAttribute('aria-hidden', 'true');
+    preview.textContent = 'T';
+
+    const name = document.createElement('strong');
+    name.textContent = character.name;
+    const type = document.createElement('span');
+    type.textContent = character.type;
+    const description = document.createElement('small');
+    description.textContent = character.description;
+
+    button.append(preview, name, type, description);
+    button.addEventListener('click', () => {
+      pendingCharacter = character.id;
+      pendingRenderer = character.renderers.includes(pendingRenderer)
+        ? pendingRenderer
+        : character.defaultRenderer;
+      renderCharacterPicker();
+      syncRendererPicker();
+    });
+    elements.characterList.append(button);
+  }
+}
+
+function openCharacterPicker() {
+  pendingCharacter = settings.character;
+  pendingRenderer = settings.renderer;
+  renderCharacterPicker();
+  syncRendererPicker();
+  elements.characterDialog.showModal();
+}
+
+function closeCharacterPicker() {
+  elements.characterDialog.close();
 }
 
 const avatar = new AvatarController({
@@ -177,7 +283,11 @@ const avatar = new AvatarController({
 async function speakCharacter(text) {
   setSpeaking(true);
   try {
-    await avatar.speak(text, { voice: settings.voice, character: settings.character });
+    await avatar.speak(text, {
+      voice: settings.voice,
+      character: settings.character,
+      renderer: settings.renderer,
+    });
   } finally {
     setSpeaking(false);
   }
@@ -191,7 +301,7 @@ setPanelOpen(false);
 
 if (hasStoredCredential) unlockExperience({ returningUser: true });
 
-avatar.loadCharacter(settings.character).catch((error) => {
+avatar.loadCharacter(settings.character, settings.renderer).catch((error) => {
   console.error(error);
   setAppStatus('Could not load the character. Try reloading the page.', 'error');
 });
@@ -218,12 +328,18 @@ elements.startButton.addEventListener('click', async () => {
   setAppStatus('');
 
   try {
-    // Audio permission needs a user gesture even though the character itself is preloaded.
     await avatar.activateAudio();
-    await avatar.loadCharacter(settings.character);
+    await avatar.loadCharacter(settings.character, settings.renderer);
     elements.welcome.classList.add('is-speaking');
     await speakCharacter(INTRO_TEXT);
-    unlockExperience();
+
+    const credentialReady = normalizeStoredAuthMode();
+    syncAuthUi();
+    if (credentialReady) {
+      unlockExperience({ tab: 'conversation', returningUser: true });
+    } else {
+      unlockExperience({ tab: 'settings', forceOpen: true, focusCredential: true });
+    }
   } catch (error) {
     console.error(error);
     elements.startButton.disabled = false;
@@ -236,31 +352,47 @@ elements.model.addEventListener('change', () => {
   const value = elements.model.value.trim() || DEFAULT_SETTINGS.model;
   settings.model = persistSetting('model', value);
   elements.model.value = settings.model;
-  elements.modelBadge.textContent = settings.model;
 });
 
-elements.character.addEventListener('change', async () => {
-  const previous = settings.character;
-  const next = elements.character.value;
-  if (next === previous) return;
+elements.changeCharacter.addEventListener('click', openCharacterPicker);
+elements.closeCharacterDialog.addEventListener('click', closeCharacterPicker);
+elements.cancelCharacter.addEventListener('click', closeCharacterPicker);
+elements.characterDialog.addEventListener('click', (event) => {
+  if (event.target === elements.characterDialog) closeCharacterPicker();
+});
 
-  elements.character.disabled = true;
+elements.renderer.addEventListener('change', () => {
+  pendingRenderer = elements.renderer.value;
+  elements.rendererDescription.textContent = getRenderer(pendingRenderer)?.description ?? '';
+});
+
+elements.selectCharacter.addEventListener('click', async () => {
+  const nextCharacter = pendingCharacter;
+  const nextRenderer = pendingRenderer;
+  const previousCharacter = settings.character;
+  const previousRenderer = settings.renderer;
+
+  closeCharacterPicker();
+  if (nextCharacter === previousCharacter && nextRenderer === previousRenderer) return;
+
+  elements.changeCharacter.disabled = true;
   setAppStatus('Loading character…');
   try {
-    await avatar.loadCharacter(next);
-    settings.character = persistSetting('character', next);
+    await avatar.loadCharacter(nextCharacter, nextRenderer);
+    settings.character = persistSetting('character', nextCharacter);
+    settings.renderer = persistSetting('renderer', nextRenderer);
+    syncCurrentCharacterUi();
     setAppStatus('Character ready.', 'success');
   } catch (error) {
     console.error(error);
-    elements.character.value = previous;
     setAppStatus('Could not load that character.', 'error');
     try {
-      await avatar.loadCharacter(previous);
+      await avatar.loadCharacter(previousCharacter, previousRenderer);
     } catch (restoreError) {
       console.error(restoreError);
     }
   } finally {
-    elements.character.disabled = false;
+    elements.changeCharacter.disabled = false;
   }
 });
 
@@ -316,10 +448,9 @@ elements.promptForm.addEventListener('submit', async (event) => {
   const model = elements.model.value.trim() || DEFAULT_SETTINGS.model;
   settings.model = persistSetting('model', model);
   elements.model.value = settings.model;
-  elements.modelBadge.textContent = settings.model;
 
   if (!prompt) {
-    setAppStatus('Enter a prompt first.', 'error');
+    setAppStatus('Enter a message first.', 'error');
     elements.prompt.focus();
     return;
   }
@@ -331,7 +462,7 @@ elements.promptForm.addEventListener('submit', async (event) => {
     activateTab('settings');
     setPanelOpen(true);
     syncAuthUi();
-    (authMode === 'demo' ? elements.demoCode : elements.apiKey).focus();
+    focusCredentialInput();
     return;
   }
 
@@ -339,13 +470,12 @@ elements.promptForm.addEventListener('submit', async (event) => {
   elements.prompt.disabled = true;
 
   try {
-    // Capture audio permission from this submit gesture before the network request begins.
     await avatar.activateAudio();
     setAppStatus('Thinking…');
     const result = await generateReply({ apiKey, demoCode, prompt, model: settings.model });
-    setAppStatus('Preparing speech…');
+    setAppStatus('Preparing response…');
     await speakCharacter(result.text);
-    setAppStatus(`Ready · ${result.model ?? settings.model}`, 'success');
+    setAppStatus('Ready', 'success');
   } catch (error) {
     console.error(error);
     setAppStatus(error.message ?? 'Something went wrong.', 'error');
