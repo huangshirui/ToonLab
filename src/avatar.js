@@ -1,4 +1,4 @@
-import { TalkingHead } from '@met4citizen/talkinghead';
+import { TalkingHead } from '../.talkinghead-runtime/talkinghead.mjs';
 import { synthesizeSpeech } from './speech.js';
 import { getCharacter } from './characters.js';
 
