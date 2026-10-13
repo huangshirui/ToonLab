@@ -9,6 +9,8 @@ import { DEFAULT_SETTINGS } from '../src/storage.js';
 const indexPath = new URL('../index.html', import.meta.url);
 const mainPath = new URL('../src/main.js', import.meta.url);
 const avatarPath = new URL('../src/avatar.js', import.meta.url);
+const live2dPath = new URL('../src/live2d.js', import.meta.url);
+const live2dFramePath = new URL('../public/live2d-frame.html', import.meta.url);
 const packagePath = new URL('../package.json', import.meta.url);
 const workerPath = new URL('../worker/index.js', import.meta.url);
 
@@ -85,6 +87,7 @@ test('speech output has a deliberate gain boost', async () => {
   const avatar = await readFile(avatarPath, 'utf8');
   assert.match(avatar, /const SPEECH_GAIN = 1\.8/);
   assert.match(avatar, /mixerGainSpeech: SPEECH_GAIN/);
+  assert.match(avatar, /live2dSpeechGain\.gain\.value = SPEECH_GAIN/);
 });
 
 test('TalkingHead runtime is pinned to the same upstream commit as avatar assets', async () => {
@@ -106,12 +109,15 @@ test('TalkingHead runtime is pinned to the same upstream commit as avatar assets
   assert.match(packageJson.scripts.test, /prepare:talkinghead/);
 });
 
-test('character registry exposes every upstream TalkingHead sample character with required compatibility presets', () => {
-  const expectedIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
-  assert.deepEqual(Object.keys(CHARACTERS), expectedIds);
-  assert.deepEqual(AVATAR_SOURCES.map(source => source.id), expectedIds);
+test('character registry keeps TalkingHead samples and adds official Live2D samples', () => {
+  const expectedTalkingHeadIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
+  const talkingHeadIds = Object.values(CHARACTERS)
+    .filter(character => character.defaultRenderer === 'talkinghead')
+    .map(character => character.id);
+  assert.deepEqual(talkingHeadIds, expectedTalkingHeadIds);
+  assert.deepEqual(AVATAR_SOURCES.map(source => source.id), expectedTalkingHeadIds);
 
-  for (const id of expectedIds) {
+  for (const id of expectedTalkingHeadIds) {
     const character = CHARACTERS[id];
     assert.equal(character.defaultRenderer, 'talkinghead');
     assert.deepEqual(character.renderers, ['talkinghead']);
@@ -123,6 +129,16 @@ test('character registry exposes every upstream TalkingHead sample character wit
   assert.equal(CHARACTERS.avatarsdk.name, 'AvatarSDK');
   assert.equal(CHARACTERS.vroid.name, 'VRoid');
   assert.equal(RENDERERS.talkinghead.name, 'TalkingHead');
+  assert.equal(RENDERERS.live2d.name, 'Live2D');
+
+  for (const id of ['live2d-hiyori', 'live2d-wanko']) {
+    const character = CHARACTERS[id];
+    assert.equal(character.defaultRenderer, 'live2d');
+    assert.deepEqual(character.renderers, ['live2d']);
+    assert.match(character.assets.live2d.url, /^https:\/\/raw\.githubusercontent\.com\/Live2D\/CubismWebSamples\/[0-9a-f]{40}\//);
+  }
+  assert.equal(CHARACTERS['live2d-hiyori'].assets.live2d.mouthParameter, 'ParamMouthOpenY');
+  assert.equal(CHARACTERS['live2d-wanko'].assets.live2d.mouthParameter, 'PARAM_MOUTH_OPEN_Y');
 
   const mpfb = CHARACTERS['mpfb-demo'].assets.talkinghead;
   assert.ok(Array.isArray(mpfb.modelDynamicBones));
@@ -144,4 +160,18 @@ test('character registry exposes every upstream TalkingHead sample character wit
   assert.ok(Array.isArray(vroid.modelDynamicBones));
   assert.ok(vroid.modelDynamicBones.length > 30, 'VRoid must keep the pinned upstream dynamic-bone preset.');
   assert.ok(vroid.modelDynamicBones.some(bone => bone.bone === 'J_Sec_Hair2_12' && bone.pivot === true));
+});
+
+test('Live2D runtime is sandboxed away from parent credentials and consumes Azure viseme timing', async () => {
+  const bridge = await readFile(live2dPath, 'utf8');
+  const frame = await readFile(live2dFramePath, 'utf8');
+  const avatar = await readFile(avatarPath, 'utf8');
+
+  assert.match(bridge, /setAttribute\('sandbox', 'allow-scripts'\)/);
+  assert.doesNotMatch(bridge, /allow-same-origin/);
+  assert.match(frame, /https:\/\/cubism\.live2d\.com\/sdk-web\/cubismcore\/live2dcubismcore\.min\.js/);
+  assert.match(frame, /pixi-live2d-display@0\.4\.0/);
+  assert.match(frame, /MOUTH_OPEN_BY_VISEME/);
+  assert.match(avatar, /data\.azureVisemes/);
+  assert.doesNotMatch(frame, /localStorage|openrouter|Authorization/);
 });

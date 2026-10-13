@@ -4,6 +4,11 @@ export const RENDERERS = {
     name: 'TalkingHead',
     description: '3D character renderer with synchronized facial animation.',
   },
+  live2d: {
+    id: 'live2d',
+    name: 'Live2D',
+    description: '2D Cubism character renderer with motion, physics and Azure-viseme lip sync.',
+  },
 };
 
 const talkingHead = (config) => ({
@@ -11,6 +16,15 @@ const talkingHead = (config) => ({
   renderers: ['talkinghead'],
   assets: { talkinghead: config },
 });
+
+const live2d = (config) => ({
+  defaultRenderer: 'live2d',
+  renderers: ['live2d'],
+  assets: { live2d: config },
+});
+
+const LIVE2D_SAMPLE_COMMIT = 'b1de66b0b1f1cb881d95fb6158622aeb6a2827bd';
+const LIVE2D_SAMPLE_ROOT = `https://raw.githubusercontent.com/Live2D/CubismWebSamples/${LIVE2D_SAMPLE_COMMIT}/Samples/Resources`;
 
 const MPFB_DYNAMIC_BONES = [
   {
@@ -134,6 +148,7 @@ export const CHARACTERS = {
         LeftShoulder: { rx: -0.5 },
         RightShoulder: { rx: -0.5 },
         scaleToHipsLevel: 1.0,
+        origin: { y: -0.1 },
       },
       baseline: {
         headRotateX: -0.05,
@@ -184,6 +199,32 @@ export const CHARACTERS = {
         eyeBlinkRight: 0.05,
       },
       modelDynamicBones: VROID_DYNAMIC_BONES,
+    }),
+  },
+
+  'live2d-hiyori': {
+    id: 'live2d-hiyori',
+    name: 'Hiyori',
+    type: '2D Character',
+    description: 'Official Live2D sample character for testing Cubism motion, physics and lip sync.',
+    ...live2d({
+      url: `${LIVE2D_SAMPLE_ROOT}/Hiyori/Hiyori.model3.json`,
+      mouthParameter: 'ParamMouthOpenY',
+      scale: 1,
+      y: 0.54,
+    }),
+  },
+
+  'live2d-wanko': {
+    id: 'live2d-wanko',
+    name: 'Wanko',
+    type: '2D Mascot',
+    description: 'Official Live2D mascot sample; useful for judging the HomeMew-style 2D character direction.',
+    ...live2d({
+      url: `${LIVE2D_SAMPLE_ROOT}/Wanko/Wanko.model3.json`,
+      mouthParameter: 'PARAM_MOUTH_OPEN_Y',
+      scale: 1.05,
+      y: 0.55,
     }),
   },
 };
