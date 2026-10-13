@@ -76,6 +76,15 @@ export class AvatarController {
     if (this.ready && this.character === character) return;
     if (this.loadPromise && this.character === character) return this.loadPromise;
 
+    if (this.loadPromise) {
+      try {
+        await this.loadPromise;
+      } catch {
+        // A failed previous load should not block a new selection.
+      }
+      if (this.ready && this.character === character) return;
+    }
+
     const head = this.ensureEngine();
     this.ready = false;
     this.character = character;
