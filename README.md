@@ -10,9 +10,15 @@ Production target: https://toonlab.verinasci.com
 
 页面为单屏响应式布局：Desktop 左侧角色、右侧交互；Mobile 角色全屏，Conversation / Settings 收在底部抽屉。角色说话时 Mobile 抽屉自动收起，用户仍可手动展开。回复文本以角色底部单行字幕显示。
 
-使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Davis 四个 en-US Neural voice，当前实验保留英语输出。
+角色资源会在页面打开后异步预加载；首次加载和后续切换角色都使用角色区域内的统一加载状态。浏览器音频仍在首次用户交互时激活，以符合自动播放限制。
 
-OpenRouter 模型可直接输入 model id，默认 `openrouter/auto`。角色选择已作为设置项抽出，目前只有随站点部署的 `MPFB Demo`，便于后续继续增加角色 renderer / asset。
+如果浏览器已经保存 Demo Code 或 OpenRouter API Key，则跳过首次 Start 引导并直接进入 Conversation；如果没有凭证，首次介绍结束后自动进入 Settings → OpenRouter access，并聚焦当前凭证输入框。
+
+使用 **Azure Speech 官方免费 F0 资源**，默认 `en-US-AriaNeural`，不使用 Edge Read Aloud。用户无需提供 TTS Key；项目维护者配置 Azure 资源。当前可在页面切换 Aria、Jenny、Guy、Sara 四个 en-US Neural voice，当前实验保留英语输出。
+
+OpenRouter 模型可直接输入 model id，默认 `openrouter/free`。Conversation 页面不展示具体模型名称；模型只在 Settings 中配置。
+
+角色设置在 Settings 中只显示当前角色和 Change。点击 Change 打开 Character Picker，可查看角色名称、类型和简介，并选择 Renderer。当前只有 `TalkingHead`；数据模型已将 `character` 与 `renderer` 分开保存，为后续增加其他 renderer（例如 Live2D）预留接口。目前只有随站点部署的 `Default character / mpfb-demo`。
 
 ## 语音与口型架构
 
@@ -78,7 +84,7 @@ npm run dev
 npm run check
 ```
 
-`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
+`dev:web` 仅启动前端，令牌及聊天 API 需要 Worker。`check` 包含 OpenRouter 两种鉴权、默认模型、令牌隔离、Viseme 映射、SDK 清理与错误测试、Vite 构建和 Worker dry-run。
 
 Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
 
