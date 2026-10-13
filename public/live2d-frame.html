@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cubism.live2d.com https://cdn.jsdelivr.net; connect-src https://raw.githubusercontent.com; img-src https://raw.githubusercontent.com data: blob:; style-src 'unsafe-inline';" />
+  <title>ToonLab Live2D renderer</title>
+  <style>
+    html, body, canvas { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="live2d-canvas"></canvas>
+  <!-- Cubism Core cannot be redistributed in this public repository, so use Live2D's official hosting endpoint. -->
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+  <script>
+    (() => {
+      const MOUTH_OPEN_BY_VISEME = [
+        0, 0.78, 0.72, 0.9, 0.62, 0.42, 0.5, 0.58, 0.72, 0.82, 0.68,
+        0.48, 0.76, 0.4, 0.28, 0.32, 0.46, 0.38, 0.34, 0.3, 0.4, 0.26,
+      ];
+
+      let port = null;
+      let app = null;
+      let model = null;
+      let mouthOpen = 0;
+      let mouthIds = [];
+      let lipTimers = [];
+      let fitConfig = { scale: 1, y: 0.53 };
+
+      function ensureRuntime() {
+        if (!window.Live2DCubismCore) throw new Error('Live2D Cubism Core did not load.');
+        if (!window.PIXI?.live2d?.Live2DModel) throw new Error('Live2D web renderer did not load.');
+        if (app) return app;
+
+        app = new PIXI.Application({
+          view: document.querySelector('#live2d-canvas'),
+          resizeTo: window,
+          backgroundAlpha: 0,
+          antialias: true,
+          autoStart: true,
+        });
+
+        app.ticker.add(() => {
+          if (!model || !mouthIds.length) return;
+          const coreModel = model.internalModel?.coreModel;
+          if (!coreModel?.setParameterValueById) return;
+          for (const id of mouthIds) coreModel.setParameterValueById(id, mouthOpen);
+        });
+
+        window.addEventListener('resize', () => fitModel());
+        return app;
+      }
+
+      function clearLipSync() {
+        for (const timer of lipTimers) clearTimeout(timer);
+        lipTimers = [];
+        mouthOpen = 0;
+      }
+
+      function fitModel() {
+        if (!app || !model) return;
+        model.scale.set(1);
+        const width = Math.max(1, model.width);
+        const height = Math.max(1, model.height);
+        const scale = Math.min(
+          (app.renderer.width * 0.92) / width,
+          (app.renderer.height * 0.92) / height,
+        ) * (Number.isFinite(fitConfig.scale) ? fitConfig.scale : 1);
+        model.scale.set(scale);
+        model.position.set(
+          app.renderer.width / 2,
+          app.renderer.height * (Number.isFinite(fitConfig.y) ? fitConfig.y : 0.53),
+        );
+      }
+
+      async function loadModel({ modelUrl, mouthParameter, scale, y }) {
+        ensureRuntime();
+        clearLipSync();
+
+        if (model) {
+          app.stage.removeChild(model);
+          model.destroy({ children: true });
+          model = null;
+        }
+
+        fitConfig = { scale: scale ?? 1, y: y ?? 0.53 };
+        model = await PIXI.live2d.Live2DModel.from(modelUrl, { autoInteract: true });
+        model.anchor.set(0.5, 0.5);
+        model.interactive = true;
+        model.on('hit', (areas) => {
+          if (Array.isArray(areas) && areas.includes('Body')) model.motion('TapBody');
+        });
+        app.stage.addChild(model);
+
+        const configured = model.internalModel?.settings?.getLipSyncParameters?.() ?? [];
+        mouthIds = configured.length ? configured : [mouthParameter || 'ParamMouthOpenY'];
+        fitModel();
+      }
+
+      function scheduleLipSync(events, durationMs) {
+        clearLipSync();
+        for (const event of events || []) {
+          if (!Number.isFinite(event?.time) || !Number.isInteger(event?.id)) continue;
+          const value = MOUTH_OPEN_BY_VISEME[event.id] ?? 0.45;
+          lipTimers.push(setTimeout(() => { mouthOpen = value; }, Math.max(0, event.time)));
+        }
+        lipTimers.push(setTimeout(() => { mouthOpen = 0; }, Math.max(0, durationMs || 0)));
+      }
+
+      async function handleRequest(message) {
+        const { id, type } = message || {};
+        try {
+          if (type === 'load') await loadModel(message);
+          else if (type === 'lipSync') scheduleLipSync(message.events, message.durationMs);
+          else if (type === 'stopLipSync') clearLipSync();
+          else if (type === 'pause') app?.stop();
+          else if (type === 'resume') app?.start();
+          else throw new Error(`Unknown Live2D command: ${type}`);
+          if (id) port.postMessage({ replyTo: id, ok: true });
+        } catch (error) {
+          if (id) port.postMessage({ replyTo: id, ok: false, error: error?.message || 'Live2D renderer failed.' });
+        }
+      }
+
+      window.addEventListener('message', (event) => {
+        if (event.data?.type !== 'toonlab-live2d-connect' || !event.ports?.[0]) return;
+        port = event.ports[0];
+        port.onmessage = (messageEvent) => handleRequest(messageEvent.data);
+        port.start();
+        port.postMessage({ type: 'ready' });
+      });
+    })();
+  </script>
+</body>
+</html>
