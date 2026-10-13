@@ -1,7 +1,7 @@
 import { issueSpeechToken } from './azure-tts.js';
 
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'openrouter/auto';
+const DEFAULT_MODEL = 'openrouter/free';
 const MAX_PROMPT_LENGTH = 2000;
 const MAX_KEY_LENGTH = 512;
 const MAX_DEMO_CODE_LENGTH = 128;
