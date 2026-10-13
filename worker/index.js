@@ -1,3 +1,5 @@
+import { issueSpeechToken } from './azure-tts.js';
+
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openrouter/auto';
 const MAX_PROMPT_LENGTH = 2000;
@@ -5,7 +7,7 @@ const MAX_KEY_LENGTH = 512;
 
 const SYSTEM_PROMPT = [
   'You are the voice of ToonLab, an experimental animated character.',
-  'For this P0 experiment, always reply in natural spoken English because the current local voice engine supports English only.',
+  'For this P0 experiment, always reply in natural spoken English using the configured en-US Azure voice.',
   'If the user asks for another spoken language, briefly explain that the current demo voice is English-only and continue in English.',
   'Keep the response concise: normally one to three sentences and under 100 words.',
   'Return plain conversational text only. Do not use markdown headings, lists, code blocks, or URLs unless the user explicitly needs them.',
@@ -27,12 +29,25 @@ function getBearerToken(request) {
 function isAllowedOrigin(request) {
   const origin = request.headers.get('Origin');
   if (!origin) return true;
+  if (origin === new URL(request.url).origin) return true;
   if (origin === 'https://toonlab.verinasci.com') return true;
   try {
     const url = new URL(origin);
     return (url.hostname === 'localhost' || url.hostname === '127.0.0.1') && ['http:', 'https:'].includes(url.protocol);
   } catch {
     return false;
+  }
+}
+
+async function handleTtsToken(request, env) {
+  if (!isAllowedOrigin(request)) return json({ error: 'Origin not allowed.' }, { status: 403 });
+  if (!env.AZURE_SPEECH_KEY || !/^[a-z0-9]+$/.test(env.AZURE_SPEECH_REGION ?? '')) {
+    return json({ error: 'Azure Speech is not configured. Set the resource key and region.' }, { status: 503 });
+  }
+  try {
+    return json(await issueSpeechToken(env, request.signal));
+  } catch {
+    return json({ error: 'Azure Speech authorization failed or timed out. Check the resource configuration and quota.' }, { status: 502 });
   }
 }
 
@@ -151,6 +166,11 @@ export default {
         return json({ error: 'Method not allowed.' }, { status: 405, headers: { Allow: 'POST' } });
       }
       return handleChat(request);
+    }
+
+    if (url.pathname === '/api/tts/token') {
+      if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, { status: 405, headers: { Allow: 'POST' } });
+      return handleTtsToken(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {

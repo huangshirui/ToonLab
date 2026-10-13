@@ -1,12 +1,11 @@
-import { HeadTTS } from '@met4citizen/headtts';
 import { TalkingHead } from '@met4citizen/talkinghead';
+import { synthesizeSpeech } from './speech.js';
 
 const AVATAR_URL =
   'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb' +
   '?morphTargets=ARKit,Oculus+Visemes,mouthOpen,mouthSmile,eyesClosed,eyesLookUp,eyesLookDown' +
   '&textureSizeLimit=1024&textureFormat=png';
 
-const HEADTTS_CDN = 'https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3';
 const MAX_TTS_CHUNK = 460;
 
 function chunkForSpeech(text) {
@@ -56,7 +55,6 @@ export class AvatarController {
     this.onStatus = onStatus;
     this.onSubtitle = onSubtitle;
     this.head = null;
-    this.tts = null;
     this.ready = false;
   }
 
@@ -64,60 +62,28 @@ export class AvatarController {
     if (this.ready) return;
 
     this.onStatus('Starting character engine…');
-    this.head = new TalkingHead(this.container, {
+    this.head ??= new TalkingHead(this.container, {
       cameraView: 'upper',
       lipsyncLang: 'en',
+      lipsyncModules: [],
     });
-
     // Resume audio while still inside the user's Start gesture. Browsers may
     // otherwise block playback after asynchronous model loading finishes.
     if (this.head.audioCtx?.state === 'suspended') {
       await this.head.audioCtx.resume();
     }
 
-    this.tts = new HeadTTS({
-      endpoints: ['webgpu', 'wasm'],
-      languages: ['en-us'],
-      voices: ['af_bella'],
-      audioCtx: this.head.audioCtx,
-      // HeadTTS explicitly supports these pinned CDN URLs for its isolated
-      // module worker/dictionary resources. The page-owned client code itself
-      // remains bundled with ToonLab and is not injected from a runtime CDN.
-      workerModule: `${HEADTTS_CDN}/modules/worker-tts.mjs`,
-      dictionaryURL: `${HEADTTS_CDN}/dictionaries/`,
-    });
-
-    const loading = { character: '…', voice: '…' };
-    const renderLoading = () => {
-      this.onStatus(`Loading character ${loading.character} · voice ${loading.voice}`);
-    };
-    renderLoading();
-
-    await Promise.all([
-      this.head.showAvatar(
-        {
-          url: AVATAR_URL,
-          body: 'F',
-          avatarMood: 'neutral',
-          lipsyncLang: 'en',
-        },
-        (event) => {
-          loading.character = progressValue(event);
-          renderLoading();
-        },
-      ),
-      this.tts.connect(null, (event) => {
-        loading.voice = progressValue(event);
-        renderLoading();
-      }),
-    ]);
-
-    await this.tts.setup({
-      voice: 'af_bella',
-      language: 'en-us',
-      speed: 1,
-      audioEncoding: 'wav',
-    });
+    await this.head.showAvatar(
+      {
+        url: AVATAR_URL,
+        body: 'F',
+        avatarMood: 'neutral',
+        lipsyncLang: 'en',
+      },
+      (event) => {
+        this.onStatus(`Loading character ${progressValue(event)}`);
+      },
+    );
 
     this.ready = true;
     this.onStatus('Ready');
@@ -132,22 +98,8 @@ export class AvatarController {
     const chunks = chunkForSpeech(text);
     for (const chunk of chunks) {
       this.onSubtitle(chunk);
-      const messages = await this.tts.synthesize({ input: chunk });
-      const errorMessage = messages.find((message) => message.type === 'error');
-      if (errorMessage) {
-        throw new Error(errorMessage.data?.error ?? 'Speech synthesis failed.');
-      }
-
-      const audioMessages = messages.filter((message) => message.type === 'audio');
-      if (!audioMessages.length) {
-        throw new Error('Speech synthesis returned no audio.');
-      }
-
-      for (const message of audioMessages) {
-        this.head.speakAudio(message.data, {}, (word) => {
-          if (word) this.onSubtitle(word);
-        });
-      }
+      const data = await synthesizeSpeech(chunk, this.head.audioCtx);
+      this.head.speakAudio(data, { lipsyncLang: 'en', isRaw: true });
 
       await new Promise((resolve) => this.head.speakMarker(resolve));
     }
