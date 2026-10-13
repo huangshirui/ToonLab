@@ -19,17 +19,20 @@
         </header>
 
         <div id="avatar" class="avatar" aria-label="Animated character"></div>
-        <div id="avatar-loading" class="avatar-loading">Ready to start</div>
+        <div id="avatar-loading" class="avatar-loading" role="status" aria-live="polite">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span id="avatar-loading-text">Loading character…</span>
+        </div>
         <div id="subtitle" class="subtitle" aria-live="polite" hidden></div>
 
         <div id="welcome" class="welcome-card">
           <p class="eyebrow">Experiment 01</p>
-          <h2>Meet a browser-native talking character.</h2>
+          <h2>Meet an interactive animated character.</h2>
           <p>
-            Start the demo to load the character and use Azure speech. The introduction does not need OpenRouter access.
+            Start the demo, then open the controls to ask the character something new.
           </p>
           <button id="start-button" class="primary-button" type="button">Start ToonLab</button>
-          <p class="microcopy">Azure neural voice · Synchronized speech and mouth animation.</p>
+          <p class="microcopy">Generated voice · Synchronized speech and character motion.</p>
         </div>
       </section>
 
@@ -82,7 +85,7 @@
                 <div class="field-group">
                   <label for="character">Character</label>
                   <select id="character">
-                    <option value="mpfb-demo">MPFB Demo</option>
+                    <option value="mpfb-demo">Default character</option>
                   </select>
                 </div>
                 <div class="field-group">
@@ -100,12 +103,12 @@
 
               <div class="auth-heading">
                 <div>
-                  <p class="eyebrow">OpenRouter access</p>
+                  <p class="eyebrow">Model access</p>
                   <h3>Choose one credential</h3>
                 </div>
               </div>
 
-              <div class="auth-switch" role="radiogroup" aria-label="OpenRouter credential type">
+              <div class="auth-switch" role="radiogroup" aria-label="Model credential type">
                 <label class="auth-option">
                   <input type="radio" name="auth-mode" value="demo" />
                   <span>Demo code</span>
@@ -126,7 +129,7 @@
                   <button id="toggle-demo-code" class="text-button" type="button">Show code</button>
                   <button id="clear-demo-code" class="text-button danger" type="button">Clear local code</button>
                 </div>
-                <p class="privacy-note">The Worker validates this code and, when valid, uses the OpenRouter demo API key stored in Worker secrets.</p>
+                <p class="privacy-note">Saved in this browser and used only to authorize demo requests.</p>
               </div>
 
               <div id="api-key-fields" class="credential-fields">
@@ -139,10 +142,10 @@
                   <button id="toggle-key" class="text-button" type="button">Show key</button>
                   <button id="clear-key" class="text-button danger" type="button">Clear local key</button>
                 </div>
-                <p class="privacy-note">Stored in this browser only. Each request sends the key to ToonLab's Worker, which forwards it to OpenRouter and does not persist it.</p>
+                <p class="privacy-note">Stored in this browser only and used only for your model requests.</p>
               </div>
 
-              <p class="privacy-note">Speech text is sent to Azure for synthesis. The current character experiment uses English lip sync.</p>
+              <p class="privacy-note">Speech is generated only when the character speaks. The current character uses English lip sync.</p>
             </div>
           </section>
         </div>
