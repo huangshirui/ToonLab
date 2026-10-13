@@ -20,13 +20,13 @@
 
         <div id="avatar" class="avatar" aria-label="Animated character"></div>
         <div id="avatar-loading" class="avatar-loading">Ready to start</div>
-        <div id="subtitle" class="subtitle" aria-live="polite"></div>
+        <div id="subtitle" class="subtitle" aria-live="polite" hidden></div>
 
         <div id="welcome" class="welcome-card">
           <p class="eyebrow">Experiment 01</p>
           <h2>Meet a browser-native talking character.</h2>
           <p>
-            Start the demo to load the character and use Azure speech. The first introduction does not need your OpenRouter key.
+            Start the demo to load the character and use Azure speech. The introduction does not need OpenRouter access.
           </p>
           <button id="start-button" class="primary-button" type="button">Start ToonLab</button>
           <p class="microcopy">Azure neural voice · Synchronized speech and mouth animation.</p>
@@ -34,52 +34,118 @@
       </section>
 
       <aside id="control-panel" class="control-panel is-locked" aria-label="ToonLab controls">
-        <section class="panel-section">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Bring your own model</p>
-              <h2>OpenRouter</h2>
+        <button id="panel-toggle" class="drawer-toggle" type="button" aria-expanded="false" aria-controls="panel-body">
+          <span class="drawer-handle" aria-hidden="true"></span>
+          <span id="drawer-label">Conversation</span>
+          <span class="drawer-chevron" aria-hidden="true">⌃</span>
+        </button>
+
+        <div id="panel-body" class="panel-body">
+          <div class="panel-tabs" role="tablist" aria-label="ToonLab control sections">
+            <button id="tab-conversation" class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-conversation" data-tab="conversation">Conversation</button>
+            <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-settings" data-tab="settings">Settings</button>
+          </div>
+
+          <section id="panel-conversation" class="tab-panel conversation-panel" role="tabpanel" aria-labelledby="tab-conversation">
+            <div class="section-heading compact">
+              <div>
+                <p class="eyebrow">Conversation</p>
+                <h2>Make the character speak</h2>
+              </div>
+              <span id="model-badge" class="model-badge">openrouter/auto</span>
             </div>
-            <span id="key-status" class="status-badge">Not configured</span>
-          </div>
 
-          <label for="api-key">API key</label>
-          <div class="key-row">
-            <input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-or-v1-…" />
-            <button id="save-key" class="secondary-button" type="button">Save</button>
-          </div>
-          <div class="inline-actions">
-            <button id="toggle-key" class="text-button" type="button">Show key</button>
-            <button id="clear-key" class="text-button danger" type="button">Clear local key</button>
-          </div>
-          <p class="privacy-note">
-            Stored in this browser only. Each request sends the key to ToonLab's Worker, which forwards it to OpenRouter and does not persist it.
-          </p>
-        </section>
+            <form id="prompt-form" class="prompt-form">
+              <label for="prompt">Prompt</label>
+              <textarea id="prompt" maxlength="2000" placeholder="Ask the character to explain something in one or two sentences…"></textarea>
+              <button id="send-button" class="primary-button" type="submit">Generate &amp; speak</button>
+            </form>
+            <p id="app-status" class="app-status" aria-live="polite"></p>
+          </section>
 
-        <section class="panel-section conversation-section">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">Conversation</p>
-              <h2>Make the character speak</h2>
+          <section id="panel-settings" class="tab-panel settings-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
+            <div class="settings-scroll">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">Experiment settings</p>
+                  <h2>Model &amp; character</h2>
+                </div>
+                <span id="auth-status" class="status-badge">Not configured</span>
+              </div>
+
+              <div class="field-group">
+                <label for="model">OpenRouter model</label>
+                <input id="model" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="openrouter/auto" placeholder="openrouter/auto" />
+              </div>
+
+              <div class="field-grid">
+                <div class="field-group">
+                  <label for="character">Character</label>
+                  <select id="character">
+                    <option value="mpfb-demo">MPFB Demo</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label for="voice">Voice</label>
+                  <select id="voice">
+                    <option value="en-US-AriaNeural">Aria · Female</option>
+                    <option value="en-US-JennyNeural">Jenny · Female</option>
+                    <option value="en-US-GuyNeural">Guy · Male</option>
+                    <option value="en-US-DavisNeural">Davis · Male</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+
+              <div class="auth-heading">
+                <div>
+                  <p class="eyebrow">OpenRouter access</p>
+                  <h3>Choose one credential</h3>
+                </div>
+              </div>
+
+              <div class="auth-switch" role="radiogroup" aria-label="OpenRouter credential type">
+                <label class="auth-option">
+                  <input type="radio" name="auth-mode" value="demo" />
+                  <span>Demo code</span>
+                </label>
+                <label class="auth-option">
+                  <input type="radio" name="auth-mode" value="key" checked />
+                  <span>API key</span>
+                </label>
+              </div>
+
+              <div id="demo-code-fields" class="credential-fields" hidden>
+                <label for="demo-code">Demo code</label>
+                <div class="key-row">
+                  <input id="demo-code" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter demo code" />
+                  <button id="save-demo-code" class="secondary-button" type="button">Save</button>
+                </div>
+                <div class="inline-actions">
+                  <button id="toggle-demo-code" class="text-button" type="button">Show code</button>
+                  <button id="clear-demo-code" class="text-button danger" type="button">Clear local code</button>
+                </div>
+                <p class="privacy-note">The Worker validates this code and, when valid, uses the OpenRouter demo API key stored in Worker secrets.</p>
+              </div>
+
+              <div id="api-key-fields" class="credential-fields">
+                <label for="api-key">OpenRouter API key</label>
+                <div class="key-row">
+                  <input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-or-v1-…" />
+                  <button id="save-key" class="secondary-button" type="button">Save</button>
+                </div>
+                <div class="inline-actions">
+                  <button id="toggle-key" class="text-button" type="button">Show key</button>
+                  <button id="clear-key" class="text-button danger" type="button">Clear local key</button>
+                </div>
+                <p class="privacy-note">Stored in this browser only. Each request sends the key to ToonLab's Worker, which forwards it to OpenRouter and does not persist it.</p>
+              </div>
+
+              <p class="privacy-note">Speech text is sent to Azure for synthesis. The current character experiment uses English lip sync.</p>
             </div>
-            <span id="model-badge" class="model-badge">openrouter/auto</span>
-          </div>
-
-          <div id="response-card" class="response-card" hidden>
-            <p class="response-label">Character</p>
-            <p id="response-text"></p>
-            <p id="response-model" class="response-model"></p>
-          </div>
-
-          <form id="prompt-form">
-            <label for="prompt">Prompt</label>
-            <textarea id="prompt" rows="5" maxlength="2000" placeholder="Ask the character to explain something in one or two sentences…"></textarea>
-            <button id="send-button" class="primary-button" type="submit">Generate &amp; speak</button>
-          </form>
-          <p class="privacy-note">Speech text is sent to Azure for synthesis. This experiment uses an English voice.</p>
-          <p id="app-status" class="app-status" aria-live="polite"></p>
-        </section>
+          </section>
+        </div>
       </aside>
     </main>
 
