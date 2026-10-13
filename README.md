@@ -62,7 +62,7 @@ npm run check
 
 Mock 测试不代表真实 Azure 合成或浏览器口型已验收。配置 F0 资源后检查固定介绍、模型回复、闭唇/圆唇、停顿收口、移动端音频激活，以及额度/网络错误。
 
-GitHub Actions 提供手动部署，需配置 `CLOUDFLARE_API_TOKEN`；Azure 两项 Worker Secret 需事先配置。
+GitHub Actions 提供手动部署，需在仓库 Settings → Secrets and variables → Actions 配置两个 repository secrets：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。Account ID 填管理 `verinasci.com` 的 Cloudflare 账号 ID。Azure 两项 Worker Secret 需事先配置。
 
 ## 官方参考
 
