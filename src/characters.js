@@ -12,6 +12,31 @@ const talkingHead = (config) => ({
   assets: { talkinghead: config },
 });
 
+const MPFB_DYNAMIC_BONES = [
+  {
+    bone: 'LeftBreast', type: 'point', stiffness: 600, damping: 20,
+    deltaLocal: [0, 0.01, 0], deltaWorld: [0, -0.02, 0],
+    limits: [[-0.02, 0.02], [-0.02, 0.06], [-0.02, 0.02], [-0.5, 0.5]],
+  },
+  {
+    bone: 'RightBreast', type: 'point', stiffness: 600, damping: 20,
+    deltaLocal: [0, 0.01, 0], deltaWorld: [0, -0.02, 0],
+    limits: [[-0.02, 0.02], [-0.02, 0.06], [-0.02, 0.02], [-0.5, 0.5]],
+  },
+  {
+    bone: 'Ponytail1', type: 'mix2', stiffness: 100, damping: 4,
+    limits: [null, null, [null, 0.02], null], pivot: true,
+  },
+  {
+    bone: 'Ponytail2', type: 'mix2', stiffness: 150, damping: 4,
+    limits: [null, null, [null, 0.01], null],
+  },
+  {
+    bone: 'Ponytail3', type: 'mix2', stiffness: 200, damping: 4,
+    limits: [null, null, [null, 0.01], null],
+  },
+];
+
 const VROID_DYNAMIC_BONES = [
   {
     bone: 'J_Sec_L_Bust1', type: 'point', stiffness: 400, damping: 10,
@@ -69,6 +94,7 @@ export const CHARACTERS = {
       url: '/avatars/demo/avatar.gltf',
       body: 'F',
       avatarMood: 'happy',
+      modelDynamicBones: MPFB_DYNAMIC_BONES,
       baseline: {
         headRotateX: -0.01,
         eyeBlinkLeft: 0.05,
