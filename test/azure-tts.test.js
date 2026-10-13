@@ -145,8 +145,8 @@ test('SDK failures, cancellation, missing visemes and timeout fail rather than s
   }
 });
 
-test('actual TalkingHead speakAudio schedules supplied native visemes', async () => {
-  const { TalkingHead } = await import('@met4citizen/talkinghead');
+test('actual pinned TalkingHead speakAudio schedules supplied native visemes', async () => {
+  const { TalkingHead } = await import('../.talkinghead-runtime/talkinghead.mjs');
   const head = { speechQueue: [], startSpeaking() {} };
   TalkingHead.prototype.speakAudio.call(head, {
     audio: {}, words: [], wtimes: [], wdurations: [],
