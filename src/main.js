@@ -95,6 +95,13 @@ function setSpeaking(speaking) {
   if (speaking && mobileQuery.matches) setPanelOpen(false);
 }
 
+function setCharacterSwitching(switching) {
+  elements.controlPanel.classList.toggle('is-character-switching', switching);
+  elements.controlPanel.inert = switching;
+  if (switching) elements.controlPanel.setAttribute('aria-busy', 'true');
+  else elements.controlPanel.removeAttribute('aria-busy');
+}
+
 function persistSetting(name, value) {
   const clean = saveSetting(name, value);
   settings = { ...settings, [name]: clean };
@@ -379,7 +386,7 @@ elements.selectCharacter.addEventListener('click', async () => {
   closeCharacterPicker();
   if (nextCharacter === previousCharacter && nextRenderer === previousRenderer) return;
 
-  elements.changeCharacter.disabled = true;
+  setCharacterSwitching(true);
   setAppStatus('Loading character…');
   try {
     await avatar.loadCharacter(nextCharacter, nextRenderer);
@@ -396,7 +403,7 @@ elements.selectCharacter.addEventListener('click', async () => {
       console.error(restoreError);
     }
   } finally {
-    elements.changeCharacter.disabled = false;
+    setCharacterSwitching(false);
   }
 });
 
