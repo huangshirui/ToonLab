@@ -2,9 +2,52 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-export const SOURCE = 'https://raw.githubusercontent.com/met4citizen/TalkingHead/2afe6d79779313db8909badebf46f9805a6c7b70/avatars/mpfb.glb';
-export const SHA256 = '63c645a2a863b9972e9a9c2ed576a1de4c390b8475508e1473e69c87a3ee299c';
+export const PINNED_COMMIT = '2afe6d79779313db8909badebf46f9805a6c7b70';
+export const AVATAR_SOURCES = [
+  {
+    id: 'mpfb-demo',
+    filename: 'mpfb.glb',
+    gitBlobSha: 'cd2ebbe1fe8bcbf3d5b2dfbf1262a7f76814e68f',
+    outputDir: 'demo',
+    split: true,
+  },
+  {
+    id: 'ready-player-me',
+    filename: 'brunette.glb',
+    gitBlobSha: '1184ff80a6c0cfd5bc51c7b379b4e29c3f79a4ef',
+    outputDir: 'ready-player-me',
+  },
+  {
+    id: 'avaturn',
+    filename: 'avaturn.glb',
+    gitBlobSha: '0865b24452da718e725da8e1324197105f5c9aa2',
+    outputDir: 'avaturn',
+  },
+  {
+    id: 'avatarsdk',
+    filename: 'avatarsdk.glb',
+    gitBlobSha: '2865a45b9f82e97e811cc703411233f3be780163',
+    outputDir: 'avatarsdk',
+  },
+  {
+    id: 'vroid',
+    filename: 'vroid.glb',
+    gitBlobSha: '8943355bf2d8bb172764281916f9fb889768396f',
+    outputDir: 'vroid',
+  },
+].map(source => ({
+  ...source,
+  url: `https://raw.githubusercontent.com/met4citizen/TalkingHead/${PINNED_COMMIT}/avatars/${source.filename}`,
+}));
+
 const LIMIT = 25 * 1024 * 1024;
+
+export function gitBlobSha(bytes) {
+  return createHash('sha1')
+    .update(Buffer.from(`blob ${bytes.length}\0`))
+    .update(bytes)
+    .digest('hex');
+}
 
 // Split embedded images from geometry so every static asset is below the
 // Workers per-file limit. No geometry, skinning or morph targets are removed.
@@ -57,22 +100,45 @@ export function splitGlb(bytes) {
   return { gltf, files };
 }
 
+async function loadPinnedAvatar(source, cache) {
+  const cacheFile = new URL(source.filename, cache);
+  let bytes;
+  try { bytes = await readFile(cacheFile); } catch { /* First build. */ }
+
+  if (!bytes || gitBlobSha(bytes) !== source.gitBlobSha) {
+    const response = await fetch(source.url, { signal: AbortSignal.timeout(120_000) });
+    if (!response.ok) throw new Error(`Avatar download failed (${source.filename}): ${response.status}`);
+    bytes = Buffer.from(await response.arrayBuffer());
+    if (gitBlobSha(bytes) !== source.gitBlobSha) {
+      throw new Error(`Avatar integrity check failed: ${source.filename}`);
+    }
+    await writeFile(cacheFile, bytes);
+  }
+
+  return bytes;
+}
+
 export async function prepareAvatar() {
   const cache = new URL('../.avatar-cache/', import.meta.url);
-  const output = new URL('../public/avatars/demo/', import.meta.url);
+  const publicRoot = new URL('../public/avatars/', import.meta.url);
   await mkdir(cache, { recursive: true });
-  let bytes;
-  try { bytes = await readFile(new URL('mpfb.glb', cache)); } catch { /* First build. */ }
-  if (!bytes || createHash('sha256').update(bytes).digest('hex') !== SHA256) {
-    const response = await fetch(SOURCE, { signal: AbortSignal.timeout(120_000) });
-    if (!response.ok) throw new Error(`Avatar download failed: ${response.status}`);
-    bytes = Buffer.from(await response.arrayBuffer());
-    if (createHash('sha256').update(bytes).digest('hex') !== SHA256) throw new Error('Avatar integrity check failed.');
-    await writeFile(new URL('mpfb.glb', cache), bytes);
+  await mkdir(publicRoot, { recursive: true });
+
+  for (const source of AVATAR_SOURCES) {
+    const bytes = await loadPinnedAvatar(source, cache);
+    const output = new URL(`${source.outputDir}/`, publicRoot);
+    await mkdir(output, { recursive: true });
+
+    if (source.split) {
+      const { files } = splitGlb(bytes);
+      for (const [name, data] of files) await writeFile(new URL(name, output), data);
+      console.log(`Prepared ${source.id} (${files.size} same-origin files).`);
+    } else {
+      if (bytes.length > LIMIT) throw new Error(`Avatar asset exceeds Workers limit: ${source.filename}`);
+      await writeFile(new URL('avatar.glb', output), bytes);
+      console.log(`Prepared ${source.id} (same-origin GLB).`);
+    }
   }
-  const { files } = splitGlb(bytes);
-  await mkdir(output, { recursive: true });
-  for (const [name, data] of files) await writeFile(new URL(name, output), data);
-  console.log(`Prepared same-origin CC0 avatar (${files.size} files).`);
 }
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await prepareAvatar();
