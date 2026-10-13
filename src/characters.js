@@ -26,6 +26,14 @@ const live2d = (config) => ({
 const LIVE2D_SAMPLE_COMMIT = 'b1de66b0b1f1cb881d95fb6158622aeb6a2827bd';
 const LIVE2D_SAMPLE_ROOT = `https://raw.githubusercontent.com/Live2D/CubismWebSamples/${LIVE2D_SAMPLE_COMMIT}/Samples/Resources`;
 
+const live2dSample = (name, config = {}) => live2d({
+  url: `${LIVE2D_SAMPLE_ROOT}/${name}/${name}.model3.json`,
+  mouthParameter: 'ParamMouthOpenY',
+  scale: 1,
+  y: 0.54,
+  ...config,
+});
+
 const MPFB_DYNAMIC_BONES = [
   {
     bone: 'LeftBreast', type: 'point', stiffness: 600, damping: 20,
@@ -202,17 +210,60 @@ export const CHARACTERS = {
     }),
   },
 
+  'live2d-haru': {
+    id: 'live2d-haru',
+    name: 'Haru',
+    type: '2D Character',
+    description: 'Official Live2D original sample character for Cubism Web testing.',
+    ...live2dSample('Haru'),
+  },
+
   'live2d-hiyori': {
     id: 'live2d-hiyori',
     name: 'Hiyori',
     type: '2D Character',
     description: 'Official Live2D sample character for testing Cubism motion, physics and lip sync.',
-    ...live2d({
-      url: `${LIVE2D_SAMPLE_ROOT}/Hiyori/Hiyori.model3.json`,
-      mouthParameter: 'ParamMouthOpenY',
-      scale: 1,
-      y: 0.54,
-    }),
+    ...live2dSample('Hiyori'),
+  },
+
+  'live2d-mao': {
+    id: 'live2d-mao',
+    name: 'Mao',
+    type: '2D Character',
+    description: 'Official Live2D original sample character with expressions and motions.',
+    ...live2dSample('Mao'),
+  },
+
+  'live2d-mark': {
+    id: 'live2d-mark',
+    name: 'Mark',
+    type: '2D Character',
+    description: 'Official Live2D original sample character for Cubism Web testing.',
+    ...live2dSample('Mark'),
+  },
+
+  'live2d-natori': {
+    id: 'live2d-natori',
+    name: 'Natori',
+    type: '2D Character',
+    description: 'Official Live2D sample character for Cubism Web testing.',
+    ...live2dSample('Natori'),
+  },
+
+  'live2d-ren': {
+    id: 'live2d-ren',
+    name: 'Ren',
+    type: '2D Character',
+    description: 'Official Live2D sample character for Cubism Web testing.',
+    ...live2dSample('Ren'),
+  },
+
+  'live2d-rice': {
+    id: 'live2d-rice',
+    name: 'Rice',
+    type: '2D Character',
+    description: 'Official Live2D original sample character for Cubism Web testing.',
+    ...live2dSample('Rice'),
   },
 
   'live2d-wanko': {
@@ -220,8 +271,7 @@ export const CHARACTERS = {
     name: 'Wanko',
     type: '2D Mascot',
     description: 'Official Live2D mascot sample; useful for judging the HomeMew-style 2D character direction.',
-    ...live2d({
-      url: `${LIVE2D_SAMPLE_ROOT}/Wanko/Wanko.model3.json`,
+    ...live2dSample('Wanko', {
       mouthParameter: 'PARAM_MOUTH_OPEN_Y',
       scale: 1.05,
       y: 0.55,
@@ -237,6 +287,12 @@ export function getRenderer(id) {
   return RENDERERS[id] ?? null;
 }
 
-export function listCharacters() {
-  return Object.values(CHARACTERS);
+export function listCharacters(rendererId) {
+  const characters = Object.values(CHARACTERS);
+  if (!rendererId) return characters;
+  return characters.filter(character => character.renderers.includes(rendererId));
+}
+
+export function listRenderers() {
+  return Object.values(RENDERERS);
 }

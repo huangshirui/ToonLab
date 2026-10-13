@@ -2,7 +2,7 @@ import './styles.css';
 import './character-picker.css';
 import { generateReply } from './api.js';
 import { AvatarController } from './avatar.js';
-import { getCharacter, getRenderer, listCharacters } from './characters.js';
+import { getCharacter, getRenderer, listCharacters, listRenderers } from './characters.js';
 import {
   DEFAULT_SETTINGS,
   clearApiKey,
@@ -208,29 +208,34 @@ function unlockExperience({ tab = 'conversation', returningUser = false, forceOp
 }
 
 function syncRendererPicker() {
-  const character = getCharacter(pendingCharacter);
   elements.renderer.replaceChildren();
 
-  for (const rendererId of character?.renderers ?? []) {
-    const renderer = getRenderer(rendererId);
-    if (!renderer) continue;
+  for (const renderer of listRenderers()) {
     const option = document.createElement('option');
     option.value = renderer.id;
     option.textContent = renderer.name;
     elements.renderer.append(option);
   }
 
-  if (!character?.renderers.includes(pendingRenderer)) {
-    pendingRenderer = character?.defaultRenderer ?? DEFAULT_SETTINGS.renderer;
-  }
+  if (!getRenderer(pendingRenderer)) pendingRenderer = DEFAULT_SETTINGS.renderer;
   elements.renderer.value = pendingRenderer;
   elements.rendererDescription.textContent = getRenderer(pendingRenderer)?.description ?? '';
 }
 
+function ensurePendingCharacterMatchesRenderer() {
+  const available = listCharacters(pendingRenderer);
+  if (!available.length) return [];
+  if (!available.some(character => character.id === pendingCharacter)) {
+    pendingCharacter = available[0].id;
+  }
+  return available;
+}
+
 function renderCharacterPicker() {
   elements.characterList.replaceChildren();
+  const available = ensurePendingCharacterMatchesRenderer();
 
-  for (const character of listCharacters()) {
+  for (const character of available) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'character-option';
@@ -242,7 +247,7 @@ function renderCharacterPicker() {
     const preview = document.createElement('div');
     preview.className = 'character-option-preview';
     preview.setAttribute('aria-hidden', 'true');
-    preview.textContent = 'T';
+    preview.textContent = pendingRenderer === 'live2d' ? '2D' : '3D';
 
     const name = document.createElement('strong');
     name.textContent = character.name;
@@ -254,11 +259,7 @@ function renderCharacterPicker() {
     button.append(preview, name, type, description);
     button.addEventListener('click', () => {
       pendingCharacter = character.id;
-      pendingRenderer = character.renderers.includes(pendingRenderer)
-        ? pendingRenderer
-        : character.defaultRenderer;
       renderCharacterPicker();
-      syncRendererPicker();
     });
     elements.characterList.append(button);
   }
@@ -267,8 +268,8 @@ function renderCharacterPicker() {
 function openCharacterPicker() {
   pendingCharacter = settings.character;
   pendingRenderer = settings.renderer;
-  renderCharacterPicker();
   syncRendererPicker();
+  renderCharacterPicker();
   elements.characterDialog.showModal();
 }
 
@@ -375,6 +376,7 @@ elements.characterDialog.addEventListener('click', (event) => {
 elements.renderer.addEventListener('change', () => {
   pendingRenderer = elements.renderer.value;
   elements.rendererDescription.textContent = getRenderer(pendingRenderer)?.description ?? '';
+  renderCharacterPicker();
 });
 
 elements.selectCharacter.addEventListener('click', async () => {

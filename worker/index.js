@@ -199,6 +199,23 @@ async function handleChat(request, env) {
   });
 }
 
+async function handleStaticAsset(request, env, url) {
+  const response = await env.ASSETS.fetch(request);
+  if (url.pathname !== '/live2d-frame.html') return response;
+
+  // Cloudflare Web Analytics automatic setup mutates HTML responses. This frame is
+  // intentionally sandboxed without allow-same-origin, so injected analytics code
+  // cannot inspect the parent document and can break renderer startup. no-transform
+  // keeps this isolated renderer document byte-for-byte as built.
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'public, max-age=300, no-transform');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -223,6 +240,6 @@ export default {
       return json({ error: 'Not found.' }, { status: 404 });
     }
 
-    return env.ASSETS.fetch(request);
+    return handleStaticAsset(request, env, url);
   },
 };

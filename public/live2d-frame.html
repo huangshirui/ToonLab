@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cubism.live2d.com https://cdn.jsdelivr.net; connect-src https://raw.githubusercontent.com; img-src https://raw.githubusercontent.com data: blob:; style-src 'unsafe-inline';" />
   <title>ToonLab Live2D renderer</title>
   <style>
     html, body, canvas { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
@@ -12,10 +11,10 @@
 </head>
 <body>
   <canvas id="live2d-canvas"></canvas>
-  <!-- Cubism Core cannot be redistributed in this public repository, so use Live2D's official hosting endpoint. -->
-  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+  <!-- Prepared during ToonLab build and served same-origin. The iframe remains sandboxed without allow-same-origin. -->
+  <script src="/live2d-runtime/live2dcubismcore.min.js"></script>
+  <script src="/live2d-runtime/pixi.min.js"></script>
+  <script src="/live2d-runtime/cubism4.min.js"></script>
   <script>
     (() => {
       const MOUTH_OPEN_BY_VISEME = [
