@@ -9,4 +9,9 @@ dist/
 .DS_Store
 
 .avatar-cache/
+.talkinghead-runtime/
 public/avatars/demo/
+public/avatars/ready-player-me/
+public/avatars/avaturn/
+public/avatars/avatarsdk/
+public/avatars/vroid/
