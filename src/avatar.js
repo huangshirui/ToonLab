@@ -45,6 +45,18 @@ function progressValue(event) {
   return '';
 }
 
+function startSubtitleTimeline(cues, onSubtitle) {
+  if (!cues?.length) return () => {};
+
+  const timers = [];
+  onSubtitle(cues[0].text);
+  for (let index = 1; index < cues.length; index++) {
+    const cue = cues[index];
+    timers.push(setTimeout(() => onSubtitle(cue.text), Math.max(0, cue.time)));
+  }
+  return () => timers.forEach(clearTimeout);
+}
+
 export class AvatarController {
   constructor({ container, onStatus, onSubtitle }) {
     this.container = container;
@@ -141,10 +153,14 @@ export class AvatarController {
 
     const chunks = chunkForSpeech(text);
     for (const chunk of chunks) {
-      this.onSubtitle(chunk);
       const data = await synthesizeSpeech(chunk, this.head.audioCtx, undefined, undefined, { voice });
       this.head.speakAudio(data, { lipsyncLang: 'en', isRaw: true });
-      await new Promise((resolve) => this.head.speakMarker(resolve));
+      const stopSubtitleTimeline = startSubtitleTimeline(data.subtitleCues, this.onSubtitle);
+      try {
+        await new Promise((resolve) => this.head.speakMarker(resolve));
+      } finally {
+        stopSubtitleTimeline();
+      }
     }
 
     this.onSubtitle('');
