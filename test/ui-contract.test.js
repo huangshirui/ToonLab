@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { AVATAR_SOURCES } from '../scripts/prepare-avatar.mjs';
+import { AVATAR_SOURCES, PINNED_COMMIT } from '../scripts/prepare-avatar.mjs';
+import { TALKINGHEAD_RUNTIME_FILES } from '../scripts/prepare-talkinghead.mjs';
 import { CHARACTERS, RENDERERS } from '../src/characters.js';
 import { DEFAULT_SETTINGS } from '../src/storage.js';
 
 const indexPath = new URL('../index.html', import.meta.url);
 const mainPath = new URL('../src/main.js', import.meta.url);
 const avatarPath = new URL('../src/avatar.js', import.meta.url);
+const packagePath = new URL('../package.json', import.meta.url);
 const workerPath = new URL('../worker/index.js', import.meta.url);
 
 test('settings and conversation markup match the agreed UI contract', async () => {
@@ -85,7 +87,26 @@ test('speech output has a deliberate gain boost', async () => {
   assert.match(avatar, /mixerGainSpeech: SPEECH_GAIN/);
 });
 
-test('character registry exposes every upstream TalkingHead sample character', () => {
+test('TalkingHead runtime is pinned to the same upstream commit as avatar assets', async () => {
+  assert.equal(PINNED_COMMIT, '2afe6d79779313db8909badebf46f9805a6c7b70');
+  assert.deepEqual(
+    TALKINGHEAD_RUNTIME_FILES.map(file => file.filename),
+    ['talkinghead.mjs', 'dynamicbones.mjs', 'retargeter.mjs', 'playback-worklet.js'],
+  );
+  for (const file of TALKINGHEAD_RUNTIME_FILES) {
+    assert.ok(file.url.includes(`/${PINNED_COMMIT}/modules/`));
+    assert.match(file.gitBlobSha, /^[0-9a-f]{40}$/);
+  }
+
+  const avatar = await readFile(avatarPath, 'utf8');
+  assert.match(avatar, /\.\.\/\.talkinghead-runtime\/talkinghead\.mjs/);
+
+  const packageJson = JSON.parse(await readFile(packagePath, 'utf8'));
+  assert.match(packageJson.scripts.build, /prepare:talkinghead/);
+  assert.match(packageJson.scripts.test, /prepare:talkinghead/);
+});
+
+test('character registry exposes every upstream TalkingHead sample character with required compatibility presets', () => {
   const expectedIds = ['mpfb-demo', 'ready-player-me', 'avaturn', 'avatarsdk', 'vroid'];
   assert.deepEqual(Object.keys(CHARACTERS), expectedIds);
   assert.deepEqual(AVATAR_SOURCES.map(source => source.id), expectedIds);
@@ -102,6 +123,21 @@ test('character registry exposes every upstream TalkingHead sample character', (
   assert.equal(CHARACTERS.avatarsdk.name, 'AvatarSDK');
   assert.equal(CHARACTERS.vroid.name, 'VRoid');
   assert.equal(RENDERERS.talkinghead.name, 'TalkingHead');
+
+  const mpfb = CHARACTERS['mpfb-demo'].assets.talkinghead;
+  assert.ok(Array.isArray(mpfb.modelDynamicBones));
+  assert.equal(mpfb.modelDynamicBones.length, 5, 'MPFB must keep the pinned upstream dynamic-bone preset.');
+  assert.ok(mpfb.modelDynamicBones.some(bone => bone.bone === 'Ponytail1' && bone.pivot === true));
+
+  const avaturn = CHARACTERS.avaturn.assets.talkinghead;
+  assert.equal(avaturn.retarget.scaleToHipsLevel, 1);
+  assert.equal(avaturn.retarget.LeftShoulder.rx, -0.5);
+
+  const avatarSdk = CHARACTERS.avatarsdk.assets.talkinghead;
+  assert.equal(avatarSdk.body, 'M');
+  assert.equal(avatarSdk.retarget.scaleToEyesLevel, 1);
+  assert.equal(avatarSdk.retarget.LeftShoulder.rz, -0.3);
+  assert.equal(avatarSdk.retarget.RightShoulder.rz, 0.3);
 
   const vroid = CHARACTERS.vroid.assets.talkinghead;
   assert.equal(vroid.avatarMood, 'neutral');
