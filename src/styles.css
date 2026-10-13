@@ -76,14 +76,31 @@ button:disabled { cursor: wait; opacity: 0.55; }
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(10, 16, 22, .78);
-  border: 1px solid rgba(255,255,255,.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 150px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(10, 16, 22, .58);
+  border: 1px solid rgba(255,255,255,.06);
   color: #b8c5cc;
   backdrop-filter: blur(12px);
   font-size: 13px;
+  pointer-events: none;
 }
+.loading-spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.12);
+  border-top-color: #65dec5;
+  animation: character-spin .85s linear infinite;
+}
+.avatar-loading[data-state="error"] .loading-spinner { display: none; }
+.avatar-loading[data-state="error"] { color: #ff9c9c; }
+@keyframes character-spin { to { transform: rotate(360deg); } }
 
 .subtitle {
   position: absolute;
