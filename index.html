@@ -28,9 +28,7 @@
         <div id="welcome" class="welcome-card">
           <p class="eyebrow">Experiment 01</p>
           <h2>Meet an interactive animated character.</h2>
-          <p>
-            Start the demo, then open the controls to ask the character something new.
-          </p>
+          <p>Start the demo, then configure access or begin a conversation.</p>
           <button id="start-button" class="primary-button" type="button">Start ToonLab</button>
           <p class="microcopy">Generated voice · Synchronized speech and character motion.</p>
         </div>
@@ -55,12 +53,10 @@
                 <p class="eyebrow">Conversation</p>
                 <h2>Make the character speak</h2>
               </div>
-              <span id="model-badge" class="model-badge">openrouter/auto</span>
             </div>
 
             <form id="prompt-form" class="prompt-form">
-              <label for="prompt">Prompt</label>
-              <textarea id="prompt" maxlength="2000" placeholder="Ask the character to explain something in one or two sentences…"></textarea>
+              <textarea id="prompt" aria-label="Message" maxlength="2000" placeholder="Ask something…"></textarea>
               <button id="send-button" class="primary-button" type="submit">Generate &amp; speak</button>
             </form>
             <p id="app-status" class="app-status" aria-live="polite"></p>
@@ -78,37 +74,41 @@
 
               <div class="field-group">
                 <label for="model">OpenRouter model</label>
-                <input id="model" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="openrouter/auto" placeholder="openrouter/auto" />
+                <input id="model" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="openrouter/free" placeholder="openrouter/free" />
               </div>
 
-              <div class="field-grid">
-                <div class="field-group">
-                  <label for="character">Character</label>
-                  <select id="character">
-                    <option value="mpfb-demo">Default character</option>
-                  </select>
+              <div class="field-group">
+                <label>Character</label>
+                <div class="character-current">
+                  <div class="character-thumb" aria-hidden="true">T</div>
+                  <div class="character-current-copy">
+                    <strong id="current-character-name">Default character</strong>
+                    <span id="current-character-meta">3D Character · TalkingHead</span>
+                  </div>
+                  <button id="change-character" class="character-change-button" type="button">Change</button>
                 </div>
-                <div class="field-group">
-                  <label for="voice">Voice</label>
-                  <select id="voice">
-                    <option value="en-US-AriaNeural">Aria · Female</option>
-                    <option value="en-US-JennyNeural">Jenny · Female</option>
-                    <option value="en-US-GuyNeural">Guy · Male</option>
-                    <option value="en-US-DavisNeural">Davis · Male</option>
-                  </select>
-                </div>
+              </div>
+
+              <div class="field-group">
+                <label for="voice">Voice</label>
+                <select id="voice">
+                  <option value="en-US-AriaNeural">Aria · Female</option>
+                  <option value="en-US-JennyNeural">Jenny · Female</option>
+                  <option value="en-US-GuyNeural">Guy · Male</option>
+                  <option value="en-US-SaraNeural">Sara · Female</option>
+                </select>
               </div>
 
               <div class="settings-divider"></div>
 
               <div class="auth-heading">
                 <div>
-                  <p class="eyebrow">Model access</p>
+                  <p class="eyebrow">OpenRouter access</p>
                   <h3>Choose one credential</h3>
                 </div>
               </div>
 
-              <div class="auth-switch" role="radiogroup" aria-label="Model credential type">
+              <div class="auth-switch" role="radiogroup" aria-label="OpenRouter credential type">
                 <label class="auth-option">
                   <input type="radio" name="auth-mode" value="demo" />
                   <span>Demo code</span>
@@ -129,7 +129,7 @@
                   <button id="toggle-demo-code" class="text-button" type="button">Show code</button>
                   <button id="clear-demo-code" class="text-button danger" type="button">Clear local code</button>
                 </div>
-                <p class="privacy-note">Saved in this browser and used only to authorize demo requests.</p>
+                <p class="privacy-note">Try ToonLab with a demo code.</p>
               </div>
 
               <div id="api-key-fields" class="credential-fields">
@@ -142,15 +142,40 @@
                   <button id="toggle-key" class="text-button" type="button">Show key</button>
                   <button id="clear-key" class="text-button danger" type="button">Clear local key</button>
                 </div>
-                <p class="privacy-note">Stored in this browser only and used only for your model requests.</p>
+                <p class="privacy-note">Use your own OpenRouter API key.</p>
               </div>
-
-              <p class="privacy-note">Speech is generated only when the character speaks. The current character uses English lip sync.</p>
             </div>
           </section>
         </div>
       </aside>
     </main>
+
+    <dialog id="character-dialog" class="character-dialog" aria-labelledby="character-dialog-title">
+      <div class="character-dialog-shell">
+        <header class="character-dialog-header">
+          <div>
+            <p class="eyebrow">Character</p>
+            <h2 id="character-dialog-title">Choose character</h2>
+          </div>
+          <button id="close-character-dialog" class="character-dialog-close" type="button" aria-label="Close character picker">×</button>
+        </header>
+
+        <div class="character-dialog-body">
+          <div id="character-list" class="character-list" role="listbox" aria-label="Available characters"></div>
+
+          <div class="renderer-picker">
+            <label for="renderer">Renderer</label>
+            <select id="renderer"></select>
+            <p id="renderer-description"></p>
+          </div>
+        </div>
+
+        <footer class="character-dialog-footer">
+          <button id="cancel-character" class="secondary-button" type="button">Cancel</button>
+          <button id="select-character" class="primary-button" type="button">Select</button>
+        </footer>
+      </div>
+    </dialog>
 
     <script type="module" src="/src/main.js"></script>
   </body>
