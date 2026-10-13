@@ -107,9 +107,7 @@ export class AvatarController {
     const currentRenderer = renderer;
     this.loadPromise = head.showAvatar(
       {
-        url: preset.url,
-        body: preset.body,
-        avatarMood: 'neutral',
+        ...preset,
         lipsyncLang: 'en',
       },
       (event) => {
