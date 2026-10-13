@@ -78,7 +78,7 @@ export async function synthesizeSpeech(text, audioCtx, sdk = SpeechSDK, timeoutM
   const config = sdk.SpeechConfig.fromAuthorizationToken(credentials.token, credentials.region);
   config.speechSynthesisVoiceName = voice || credentials.voice;
   config.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm;
-  // null output disables SDK speaker playback: TalkingHead owns audio playback.
+  // null output disables SDK speaker playback: the active avatar renderer owns audio playback.
   const synthesizer = new sdk.SpeechSynthesizer(config, null);
   const events = [];
   const wordBoundaries = [];
@@ -118,6 +118,8 @@ export async function synthesizeSpeech(text, audioCtx, sdk = SpeechSDK, timeoutM
   // Empty arrays enable it without invoking word-to-viseme inference.
   return {
     audio,
+    durationMs,
+    azureVisemes: events.map(({ id, time }) => ({ id, time })),
     words: [],
     wtimes: [],
     wdurations: [],
